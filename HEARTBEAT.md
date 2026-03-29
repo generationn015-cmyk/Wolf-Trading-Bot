@@ -1,11 +1,16 @@
 ---
-summary: "Workspace template for HEARTBEAT.md"
+summary: "Wolf heartbeat tasks"
 read_when:
-  - Bootstrapping a workspace manually
+  - Every heartbeat
 ---
 
 # HEARTBEAT.md
 
-# Keep this file empty (or with only comments) to skip heartbeat API calls.
+## Every heartbeat
+- Run workspace backup: bash /data/.openclaw/workspace/scripts/backup.sh
+- Check SESSION-STATE.md for any pending actions that need attention
+- If Jefe has been quiet for >8 hours and it's not late night, check if anything needs a proactive update
 
-# Add tasks below when you want the agent to check something periodically.
+## Do not run if
+- It's between 23:00 and 08:00 EST and nothing is urgent
+- Backup already ran in the last 30 minutes (check git log)
