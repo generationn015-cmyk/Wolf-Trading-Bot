@@ -1,0 +1,30 @@
+# Secrets and credentials — never commit these
+*.env
+.env*
+auth-profiles.json
+credentials/
+*.key
+*.pem
+*.secret
+*_secret*
+*_token*
+*api_key*
+
+# OpenClaw runtime files
+sessions/
+*.lock
+*.log
+logs/
+.openclaw/logs/
+.openclaw/identity/
+.openclaw/devices/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Backups created by config writes
+*.bak
