@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐺 Wolf Trading Bot</title>
+<meta http-equiv="refresh" content="30">
+<style>
+  body { font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; margin: 0; padding: 20px; }
+  h1 { color: #00ff88; border-bottom: 1px solid #333; padding-bottom: 10px; }
+  .paper-banner { background: #1a3a1a; border: 2px solid #00ff88; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; color: #00ff88; font-weight: bold; font-size: 1.1em; }
+  .live-banner { background: #3a1a1a; border: 2px solid #ff4444; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; color: #ff4444; font-weight: bold; font-size: 1.1em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+  .card { background: #111; border: 1px solid #333; border-radius: 8px; padding: 15px; }
+  .card h3 { margin: 0 0 8px 0; color: #888; font-size: 0.8em; text-transform: uppercase; }
+  .card .value { font-size: 1.6em; font-weight: bold; color: #00ff88; }
+  .card .value.negative { color: #ff4444; }
+  .card .value.neutral { color: #ffaa00; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  th { background: #1a1a1a; color: #888; padding: 8px; text-align: left; border-bottom: 1px solid #333; }
+  td { padding: 8px; border-bottom: 1px solid #1a1a1a; }
+  tr:hover { background: #111; }
+  .win { color: #00ff88; }
+  .loss { color: #ff4444; }
+  .section { margin-top: 25px; }
+  .section h2 { color: #888; font-size: 0.9em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+  .gate-progress { background: #1a1a1a; border-radius: 20px; height: 20px; margin: 8px 0; overflow: hidden; }
+  .gate-bar { height: 100%; background: linear-gradient(90deg, #00ff88, #00cc66); border-radius: 20px; transition: width 0.3s; }
+  .footer { margin-top: 30px; color: #444; font-size: 0.75em; }
+</style>
+</head>
+<body>
+<h1>🐺 Wolf Trading Bot</h1>
+
+{% if paper_mode %}
+<div class="paper-banner">📄 PAPER MODE — Simulated trades only. No real money at risk.</div>
+{% else %}
+<div class="live-banner">⚠️ LIVE MODE — Real money is being traded. Monitor closely.</div>
+{% endif %}
+
+<div class="grid" id="stats-grid">
+  <div class="card"><h3>Paper Trades</h3><div class="value" id="paper-total">—</div></div>
+  <div class="card"><h3>Win Rate</h3><div class="value" id="paper-winrate">—</div></div>
+  <div class="card"><h3>Paper P&L</h3><div class="value" id="paper-pnl">—</div></div>
+  <div class="card"><h3>Live P&L</h3><div class="value" id="live-pnl">—</div></div>
+</div>
+
+<div class="section">
+  <h2>Paper Gate Progress</h2>
+  <div style="color: #888; font-size: 0.85em;">Trades: <span id="gate-trades">—</span>/200 &nbsp;&nbsp; Win Rate: <span id="gate-wr">—</span>/80%</div>
+  <div class="gate-progress"><div class="gate-bar" id="gate-bar" style="width:0%"></div></div>
+</div>
+
+<div class="section">
+  <h2>Recent Paper Trades</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Strategy</th><th>Venue</th><th>Market</th><th>Side</th><th>Size</th><th>Result</th></tr></thead>
+    <tbody id="trades-table"><tr><td colspan="7" style="color:#444">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>Whale Moves</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Wallet</th><th>Market</th><th>Side</th><th>Size</th></tr></thead>
+    <tbody id="whale-table"><tr><td colspan="5" style="color:#444">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<div class="footer">Auto-refreshes every 30 seconds. Last updated: <span id="last-update">—</span></div>
+
+<script>
+function fmt_time(ts) {
+  return new Date(ts * 1000).toLocaleTimeString();
+}
+function fmt_pnl(v) {
+  if (v === null || v === undefined) return '—';
+  const s = v >= 0 ? '+' : '';
+  return `<span class="${v >= 0 ? 'win' : 'loss'}">${s}$${Math.abs(v).toFixed(2)}</span>`;
+}
+async function refresh() {
+  try {
+    const stats = await fetch('/api/stats').then(r => r.json());
+    document.getElementById('paper-total').textContent = stats.paper.total;
+    document.getElementById('paper-winrate').textContent = (stats.paper.win_rate * 100).toFixed(1) + '%';
+    document.getElementById('paper-pnl').innerHTML = fmt_pnl(stats.paper.pnl);
+    document.getElementById('live-pnl').innerHTML = fmt_pnl(stats.live.pnl);
+
+    const trades = stats.paper.total;
+    const wr = stats.paper.win_rate;
+    document.getElementById('gate-trades').textContent = trades;
+    document.getElementById('gate-wr').textContent = (wr * 100).toFixed(1) + '%';
+    const pct = Math.min(100, (trades / 200) * 50 + (wr / 0.8) * 50);
+    document.getElementById('gate-bar').style.width = pct + '%';
+
+    const rows = await fetch('/api/recent_trades').then(r => r.json());
+    const tbody = document.getElementById('trades-table');
+    tbody.innerHTML = rows.length ? rows.map(r => `
+      <tr>
+        <td>${fmt_time(r.timestamp)}</td>
+        <td>${r.strategy || '—'}</td>
+        <td>${r.venue || '—'}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.market_id || '—'}</td>
+        <td>${r.side || '—'}</td>
+        <td>$${(r.size || 0).toFixed(2)}</td>
+        <td>${r.resolved ? (r.won ? '<span class="win">WIN</span>' : '<span class="loss">LOSS</span>') : '<span style="color:#888">Open</span>'}</td>
+      </tr>`).join('') : '<tr><td colspan="7" style="color:#444">No trades yet</td></tr>';
+
+    const whales = await fetch('/api/whale_moves').then(r => r.json());
+    const wtbody = document.getElementById('whale-table');
+    wtbody.innerHTML = whales.length ? whales.map(w => `
+      <tr>
+        <td>${fmt_time(w.timestamp)}</td>
+        <td>${(w.wallet || '').substring(0,12)}...</td>
+        <td style="max-width:150px;overflow:hidden">${w.market || '—'}</td>
+        <td>${w.side || '—'}</td>
+        <td>$${(w.size || 0).toLocaleString()}</td>
+      </tr>`).join('') : '<tr><td colspan="5" style="color:#444">No whale moves detected</td></tr>';
+
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+  } catch(e) { console.error('Refresh error:', e); }
+}
+refresh();
+</script>
+</body>
+</html>
