@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 import config
 from feeds.polymarket_feed import get_top_wallets, get_wallet_positions, get_market_volume
+from intelligence import IntelligenceEngine, WalletMetrics
 
 logger = logging.getLogger("wolf.strategy.copy_trading")
 
@@ -31,6 +32,7 @@ class CopyTrader:
         self.wallets: dict[str, WalletProfile] = {}
         self._last_refresh: float = 0
         self._refresh_interval = 300  # refresh wallet list every 5 min
+        self.intel = IntelligenceEngine()
 
     async def refresh_wallets(self):
         """Pull top wallets and update profiles."""
@@ -38,7 +40,7 @@ class CopyTrader:
         if now - self._last_refresh < self._refresh_interval:
             return
 
-        top = get_top_wallets(limit=15)
+        top = get_top_wallets(limit=20)
         for entry in top:
             addr = entry.get("proxy_wallet") or entry.get("wallet", "")
             if not addr:
@@ -50,13 +52,36 @@ class CopyTrader:
             profile.win_rate = float(entry.get("percentPositive", 0))
             profile.trade_count = int(entry.get("tradesCount", 0))
 
-        # Compute weights based on ROI rank
-        validated = [w for w in self.wallets.values() if w.demo_validated]
-        if validated:
-            total_pnl = sum(max(w.pnl, 0) for w in validated)
-            for w in validated:
-                w.weight = max(w.pnl, 0) / total_pnl if total_pnl > 0 else 1.0 / len(validated)
+            # Build intelligence metrics and classify
+            metrics = WalletMetrics(
+                address=addr,
+                pnl=profile.pnl,
+                win_rate=profile.win_rate,
+                trade_count=profile.trade_count,
+                avg_size=float(entry.get("avgPositionSize", 0) or 0),
+                max_size=float(entry.get("maxPositionSize", 0) or 0),
+                active_days=int(entry.get("activeDays", 0) or 0),
+                markets=int(entry.get("marketsTraded", 0) or 0),
+            )
+            score = self.intel.score_wallet(metrics)
+            classification = self.intel.classify_wallet(score)
 
+            # Only keep smart/whale wallets in active copy universe; suspicious wallets are tracked but not copied
+            if classification == "suspicious":
+                logger.info(f"Wallet {addr[:10]}... flagged suspicious | score={score.score:.3f} | notes={score.notes}")
+                continue
+            if classification in ("smart", "whale"):
+                # Weight combines PnL and score quality
+                profile.weight = max(score.score, 0.01)
+
+        # Normalize weights across non-suspicious wallets
+        eligible = [w for w in self.wallets.values() if w.weight > 0]
+        if eligible:
+            total_weight = sum(w.weight for w in eligible)
+            for w in eligible:
+                w.weight = w.weight / total_weight if total_weight > 0 else 1.0 / len(eligible)
+
+        validated = [w for w in self.wallets.values() if w.demo_validated]
         self._last_refresh = now
         logger.info(f"Wallets refreshed: {len(self.wallets)} tracked, {len(validated)} validated")
 

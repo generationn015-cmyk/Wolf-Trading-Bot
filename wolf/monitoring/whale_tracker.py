@@ -8,8 +8,9 @@ import time
 import logging
 import sqlite3
 import config
-from feeds.polymarket_feed import get_top_wallets, get_wallet_positions
+from feeds.polymarket_feed import get_top_wallets, get_wallet_positions, get_market_volume
 from alerts.telegram_alerts import alert_whale_move
+from intelligence import IntelligenceEngine, WalletMetrics
 
 logger = logging.getLogger("wolf.whale")
 
@@ -19,6 +20,7 @@ class WhaleTracker:
         self._seen_trade_ids: set = set()
         self._running = False
         self._task = None
+        self.intel = IntelligenceEngine()
 
     async def start(self):
         self._running = True
@@ -56,11 +58,30 @@ class WhaleTracker:
                     self._seen_trade_ids.add(trade_id)
 
                     size = float(pos.get("size", 0))
+                    market = pos.get("market", "unknown")
+                    side = pos.get("side", "unknown")
+                    volume = get_market_volume(market)
+
+                    metrics = WalletMetrics(
+                        address=addr,
+                        avg_size=size,
+                        max_size=size,
+                        trade_count=1,
+                        recent_sizes=[size],
+                        recent_market_volumes=[volume],
+                    )
+                    score = self.intel.score_wallet(metrics)
+
                     if size >= config.WHALE_ALERT_THRESHOLD:
-                        market = pos.get("market", "unknown")
-                        side = pos.get("side", "unknown")
                         alert_whale_move(addr, market, side, size, "polymarket")
-                        self._store_whale_move(addr, market, side, size, pos.get("price", 0))
+                        self._store_whale_move(addr, market, side, size, pos.get("price", 0), score.anomaly_score)
+
+                    if score.suspicious and score.anomaly_score >= 0.4:
+                        from alerts.telegram_alerts import send_alert
+                        send_alert(
+                            f"Suspicious wallet behavior detected\nWallet: {addr[:10]}...\nMarket: {market}\nSide: {side} | Size: ${size:,.0f}\nAnomaly score: {score.anomaly_score:.2f}\nNotes: {', '.join(score.notes)}",
+                            "WARNING"
+                        )
             except Exception as e:
                 logger.warning(f"Error checking wallet {addr[:10]}: {e}")
 
@@ -68,19 +89,20 @@ class WhaleTracker:
         if len(self._seen_trade_ids) > 10000:
             self._seen_trade_ids = set(list(self._seen_trade_ids)[-5000:])
 
-    def _store_whale_move(self, wallet, market, side, size, price):
+    def _store_whale_move(self, wallet, market, side, size, price, anomaly_score=0.0):
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS whale_moves (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         timestamp REAL, wallet TEXT, market TEXT,
-                        side TEXT, size REAL, price REAL, venue TEXT
+                        side TEXT, size REAL, price REAL, venue TEXT,
+                        anomaly_score REAL DEFAULT 0.0
                     )
                 """)
                 conn.execute(
-                    "INSERT INTO whale_moves VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)",
-                    (time.time(), wallet, market, side, size, price, "polymarket")
+                    "INSERT INTO whale_moves VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (time.time(), wallet, market, side, size, price, "polymarket", anomaly_score)
                 )
                 conn.commit()
         except Exception as e:
