@@ -38,37 +38,50 @@ class PaperTrader:
         self._load_from_db()
 
     def _load_from_db(self):
-        """Restore resolved paper trades from DB so stats survive restarts."""
+        """Restore all paper trades from DB on startup — resolved for stats, open for resolution."""
         try:
             import sqlite3
             db_path = config.DB_PATH
             if not os.path.exists(db_path):
                 return
             with sqlite3.connect(db_path) as conn:
+                # Load resolved trades for stats/gate
                 rows = conn.execute(
                     "SELECT strategy, venue, market_id, side, size, entry_price, "
                     "exit_price, pnl, resolved, won, timestamp FROM paper_trades "
                     "WHERE resolved=1 ORDER BY timestamp ASC"
                 ).fetchall()
-            for row in rows:
-                t = PaperTrade(
-                    timestamp=row[10],
-                    strategy=row[0],
-                    venue=row[1],
-                    market_id=row[2],
-                    side=row[3],
-                    size=row[4],
-                    entry_price=row[5],
-                    exit_price=row[6],
-                    pnl=row[7],
-                    resolved=bool(row[8]),
-                    won=bool(row[9]),
+                for row in rows:
+                    t = PaperTrade(
+                        timestamp=row[10], strategy=row[0], venue=row[1],
+                        market_id=row[2], side=row[3], size=row[4],
+                        entry_price=row[5], exit_price=row[6], pnl=row[7],
+                        resolved=True, won=bool(row[9]),
+                    )
+                    self.trades.append(t)
+                    if t.pnl is not None:
+                        self.balance += t.pnl
+
+                # Load open trades so the resolver can settle them
+                open_rows = conn.execute(
+                    "SELECT strategy, venue, market_id, side, size, entry_price, timestamp "
+                    "FROM paper_trades WHERE resolved=0"
+                ).fetchall()
+                for row in open_rows:
+                    t = PaperTrade(
+                        timestamp=row[6], strategy=row[0], venue=row[1],
+                        market_id=row[2], side=row[3], size=row[4],
+                        entry_price=row[5],
+                    )
+                    self.open_trades.append(t)
+
+            resolved_count = len(self.trades)
+            open_count = len(self.open_trades)
+            if resolved_count or open_count:
+                logger.info(
+                    f"Restored {resolved_count} resolved + {open_count} open trades | "
+                    f"balance=${self.balance:.2f}"
                 )
-                self.trades.append(t)
-                if t.pnl is not None:
-                    self.balance += t.pnl
-            if self.trades:
-                logger.info(f"Restored {len(self.trades)} paper trades from DB | balance=${self.balance:.2f}")
         except Exception as e:
             logger.warning(f"Could not restore paper trades from DB: {e}")
 

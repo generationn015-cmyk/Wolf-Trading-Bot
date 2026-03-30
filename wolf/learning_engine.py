@@ -58,7 +58,7 @@ class LearningEngine:
 
                 for row in rows:
                     strat, total, wins, avg_pnl, avg_entry = row
-                    if total < 5:
+                    if total < 10:  # Need at least 10 trades for meaningful stats
                         continue
                     wr = wins / total
 

@@ -178,12 +178,12 @@ class MarketMaker:
         if captured_spread <= 0:
             return signals
 
-        # Market making confidence is different from directional bets —
-        # it's based on spread capture probability, not outcome prediction.
-        # A 2% captured spread on a liquid market is a solid MM opportunity.
-        confidence = min(0.70, 0.5 + captured_spread * 5)
+        # MM confidence = spread quality score. Not directional — it's about
+        # capturing the bid/ask gap. Base 0.60 + spread bonus.
+        confidence = min(0.80, 0.60 + captured_spread * 4)
 
-        MM_MIN_CONFIDENCE = max(0.55, learning.get_confidence_floor("market_making"))
+        # MM has its own lower floor — never penalized by learning engine until 10+ trades
+        MM_MIN_CONFIDENCE = 0.58  # Fixed floor for MM — learning engine adjusts copy/arb only
         if confidence >= MM_MIN_CONFIDENCE:
             signals.append({
                 "strategy": "market_making",
