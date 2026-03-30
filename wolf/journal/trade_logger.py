@@ -56,7 +56,7 @@ class TradeLogger:
                     confidence REAL,
                     edge REAL,
                     reason TEXT,
-                    UNIQUE(strategy, market_id, side, resolved, CAST(timestamp/300 AS INTEGER))
+                    UNIQUE(strategy, market_id, side, resolved)
                 );
 
                 CREATE TABLE IF NOT EXISTS signals (
