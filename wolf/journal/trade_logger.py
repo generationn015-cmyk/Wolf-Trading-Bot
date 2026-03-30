@@ -189,7 +189,7 @@ class TradeLogger:
         with sqlite3.connect(self.db_path) as conn:
             paper = conn.execute("""
                 SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), SUM(pnl)
-                FROM paper_trades WHERE resolved=1
+                FROM paper_trades WHERE resolved=1 AND simulated=0
             """).fetchone()
             total_p = paper[0] or 0
             wins_p  = paper[1] or 0

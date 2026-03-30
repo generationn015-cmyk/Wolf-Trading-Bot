@@ -36,6 +36,8 @@ class HealthCheck:
             self._task.cancel()
 
     async def _heartbeat_loop(self):
+        # Wait for feeds to fully initialize before first health check
+        await asyncio.sleep(25)
         while self._running:
             try:
                 await self._run_check()
