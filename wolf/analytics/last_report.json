@@ -1,16 +1,16 @@
 {
   "period_hours": 24,
-  "generated_at": 1774874115.2462833,
+  "generated_at": 1774874821.5843275,
   "overall": {
-    "total_trades": 255,
-    "wins": 167,
-    "losses": 88,
-    "win_rate": 0.6549019607843137,
-    "total_pnl": 135793.53,
-    "avg_pnl_per_trade": 532.52,
+    "total_trades": 71,
+    "wins": 53,
+    "losses": 18,
+    "win_rate": 0.7464788732394366,
+    "total_pnl": 46777.69,
+    "avg_pnl_per_trade": 658.84,
     "best_trade": 2586.67,
     "worst_trade": -80.0,
-    "avg_confidence": 0.779
+    "avg_confidence": 0.782
   },
   "by_strategy": {
     "copy_trading": {
@@ -25,35 +25,35 @@
       "worst": -80.0
     },
     "market_making": {
-      "total": 6,
-      "wins": 2,
-      "win_rate": 0.333,
-      "pnl": -208.81,
-      "avg_pnl": -34.8,
+      "total": 2,
+      "wins": 0,
+      "win_rate": 0.0,
+      "pnl": -160.0,
+      "avg_pnl": -80.0,
       "avg_confidence": 0.78,
       "avg_price": 0.495,
-      "best": 55.59,
+      "best": -80.0,
       "worst": -80.0
     },
     "timezone_arb": {
-      "total": 4,
+      "total": 2,
       "wins": 2,
-      "win_rate": 0.5,
-      "pnl": 956.1,
-      "avg_pnl": 239.02,
+      "win_rate": 1.0,
+      "pnl": 1116.1,
+      "avg_pnl": 558.05,
       "avg_confidence": 0.697,
       "avg_price": 0.16,
       "best": 855.67,
-      "worst": -80.0
+      "worst": 260.43
     },
     "value_bet": {
-      "total": 229,
-      "wins": 149,
-      "win_rate": 0.651,
-      "pnl": 134266.95,
-      "avg_pnl": 586.32,
-      "avg_confidence": 0.785,
-      "avg_price": 0.141,
+      "total": 51,
+      "wins": 37,
+      "win_rate": 0.725,
+      "pnl": 45042.29,
+      "avg_pnl": 883.18,
+      "avg_confidence": 0.805,
+      "avg_price": 0.11,
       "best": 2586.67,
       "worst": -80.0
     }
@@ -61,44 +61,44 @@
   "price_buckets": [
     {
       "range": "0.0\u20130.1",
-      "total": 104,
-      "win_rate": 0.712,
-      "pnl": 110917.92,
-      "flag": ""
+      "total": 31,
+      "win_rate": 0.871,
+      "pnl": 42155.82,
+      "flag": "\u2705 strong"
     },
     {
       "range": "0.1\u20130.2",
-      "total": 63,
-      "win_rate": 0.571,
-      "pnl": 16840.08,
-      "flag": ""
+      "total": 15,
+      "win_rate": 0.467,
+      "pnl": 3139.43,
+      "flag": "\u26a0\ufe0f weak"
     },
     {
       "range": "0.2\u20130.3",
-      "total": 42,
-      "win_rate": 0.619,
-      "pnl": 5690.6,
+      "total": 5,
+      "win_rate": 0.6,
+      "pnl": 600.85,
       "flag": ""
     },
     {
       "range": "0.3\u20130.4",
-      "total": 26,
-      "win_rate": 0.615,
-      "pnl": 1934.45,
+      "total": 4,
+      "win_rate": 0.75,
+      "pnl": 422.3,
       "flag": ""
     },
     {
       "range": "0.4\u20130.5",
-      "total": 6,
-      "win_rate": 0.333,
-      "pnl": -146.52,
-      "flag": "\u26a0\ufe0f weak"
+      "total": 4,
+      "win_rate": 0.5,
+      "pnl": 13.48,
+      "flag": ""
     },
     {
       "range": "0.5\u20130.6",
-      "total": 8,
-      "win_rate": 0.875,
-      "pnl": 364.43,
+      "total": 6,
+      "win_rate": 0.833,
+      "pnl": 253.24,
       "flag": "\u2705 strong"
     },
     {
@@ -119,45 +119,45 @@
   "hourly_performance": [
     {
       "hour_et": 1,
-      "total": 20,
-      "win_rate": 0.6,
-      "pnl": 10861.42
+      "total": 18,
+      "win_rate": 0.667,
+      "pnl": 11021.42
     },
     {
       "hour_et": 2,
-      "total": 52,
-      "win_rate": 0.635,
-      "pnl": 28643.49
+      "total": 18,
+      "win_rate": 0.778,
+      "pnl": 13153.29
     },
     {
       "hour_et": 3,
-      "total": 37,
-      "win_rate": 0.757,
-      "pnl": 18168.63
+      "total": 11,
+      "win_rate": 0.909,
+      "pnl": 4370.44
     },
     {
       "hour_et": 4,
-      "total": 39,
-      "win_rate": 0.487,
-      "pnl": 7866.21
+      "total": 7,
+      "win_rate": 0.571,
+      "pnl": 747.79
     },
     {
       "hour_et": 5,
-      "total": 45,
-      "win_rate": 0.622,
-      "pnl": 29242.41
+      "total": 7,
+      "win_rate": 0.857,
+      "pnl": 10677.8
     },
     {
       "hour_et": 6,
-      "total": 32,
-      "win_rate": 0.781,
-      "pnl": 29352.61
+      "total": 6,
+      "win_rate": 0.833,
+      "pnl": 6650.09
     },
     {
       "hour_et": 7,
-      "total": 29,
-      "win_rate": 0.724,
-      "pnl": 11581.89
+      "total": 3,
+      "win_rate": 0.333,
+      "pnl": 80.0
     },
     {
       "hour_et": 23,
@@ -190,20 +190,6 @@
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.0855,
-      "side": "YES",
-      "pnl": -80.0,
-      "reason": "ValueBet: Underdog YES@0.086 vol=$305,868 | BitBoy convicted?"
-    },
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.305,
-      "side": "YES",
-      "pnl": -80.0,
-      "reason": "ValueBet: Value YES@0.305 mid-range vol=$293,032 | Will Harvey Weinstein be sent"
-    },
-    {
-      "strategy": "value_bet",
       "entry_price": 0.162,
       "side": "YES",
       "pnl": -80.0,
@@ -224,41 +210,6 @@
       "reason": "ValueBet: Underdog YES@0.037 vol=$5,875,553 | Will Josh Shapiro win the 2028 Dem"
     },
     {
-      "strategy": "timezone_arb",
-      "entry_price": 0.235,
-      "side": "NO",
-      "pnl": -80.0,
-      "reason": "TZ arb [EU] Top story - The European Parliament\u2019s Sakharov Prize 2023 - \u2026 entry="
-    },
-    {
-      "strategy": "timezone_arb",
-      "entry_price": 0.0845,
-      "side": "YES",
-      "pnl": -80.0,
-      "reason": "TZ arb [EU] Top story - Consumer protection - How the EU protects consum\u2026 entry="
-    },
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.0845,
-      "side": "YES",
-      "pnl": -80.0,
-      "reason": "ValueBet: Underdog YES@0.085 vol=$305,886 | BitBoy convicted?"
-    },
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.056,
-      "side": "YES",
-      "pnl": -80.0,
-      "reason": "ValueBet: Underdog YES@0.056 vol=$5,846,561 | Will Jon Ossoff win the 2028 Democ"
-    },
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.0855,
-      "side": "YES",
-      "pnl": -80.0,
-      "reason": "ValueBet: Underdog YES@0.086 vol=$305,907 | BitBoy convicted?"
-    },
-    {
       "strategy": "market_making",
       "entry_price": 0.59,
       "side": "YES",
@@ -274,38 +225,73 @@
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.11,
+      "entry_price": 0.1715,
       "side": "YES",
       "pnl": -80.0,
-      "reason": "ValueBet: Underdog YES@0.110 vol=$5,674,719 | MegaETH market cap (FDV) >$2B one "
-    },
-    {
-      "strategy": "market_making",
-      "entry_price": 0.4,
-      "side": "NO",
-      "pnl": -80.0,
-      "reason": "MM both sides \u2014 paired hedge"
+      "reason": "ValueBet: Underdog YES@0.172 vol=$6,722,183 | Will Gavin Newsom win the 2028 US "
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.087,
+      "entry_price": 0.2425,
       "side": "YES",
       "pnl": -80.0,
-      "reason": "ValueBet: Underdog YES@0.087 vol=$305,986 | BitBoy convicted?"
+      "reason": "ValueBet: Underdog YES@0.242 vol=$152,031 | Will Harvey Weinstein be sentenced t"
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.42,
+      "side": "YES",
+      "pnl": -80.0,
+      "reason": "Copy top trader 0xd6a3f0ec... PnL $90,341"
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.305,
+      "entry_price": 0.1275,
       "side": "YES",
       "pnl": -80.0,
-      "reason": "ValueBet: Value YES@0.305 mid-range vol=$293,032 | Will Harvey Weinstein be sent"
+      "reason": "ValueBet: Underdog YES@0.128 vol=$6,549,467 | Will England win the 2026 FIFA Wor"
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.14,
+      "entry_price": 0.1105,
       "side": "YES",
       "pnl": -80.0,
-      "reason": "ValueBet: Underdog YES@0.140 vol=$121,331 | Will Harvey Weinstein be sentenced t"
+      "reason": "ValueBet: Underdog YES@0.111 vol=$4,213,517 | Will France win the 2026 FIFA Worl"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.365,
+      "side": "YES",
+      "pnl": -80.0,
+      "reason": "ValueBet: Value YES@0.365 mid-range vol=$5,635,313 | Will the Oklahoma City Thun"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.115,
+      "side": "YES",
+      "pnl": -80.0,
+      "reason": "ValueBet: Underdog YES@0.115 vol=$233,074 | Will the Carolina Hurricanes win the"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.2435,
+      "side": "YES",
+      "pnl": -80.0,
+      "reason": "ValueBet: Underdog YES@0.243 vol=$16,617,864 | Will Gavin Newsom win the 2028 De"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.1985,
+      "side": "YES",
+      "pnl": -80.0,
+      "reason": "ValueBet: Underdog YES@0.199 vol=$13,323,877 | Will the Colorado Avalanche win t"
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.19990329401976142,
+      "side": "YES",
+      "pnl": -80.0,
+      "reason": "Copy top trader 0xbacd00c9... PnL $27,759"
     }
   ],
   "wallet_performance": [
@@ -323,11 +309,11 @@
     }
   ],
   "lessons": [
-    "\ud83d\udd34 Overall WR 65.5% \u2014 below target. Tighten filters.",
+    "\ud83d\udfe1 Overall WR 74.6% \u2014 on track. Monitor closely.",
     "\ud83d\ude80 copy_trading: 87.5% WR \u2014 can slightly relax size limits to compound",
-    "\u26d4 market_making: 33.3% WR on 6 trades \u2014 raise confidence floor or pause strategy",
-    "\ud83d\udeab Price range 0.4\u20130.5: 33.3% WR \u2014 block this range",
-    "\ud83d\udca1 Price range 0.5\u20130.6: 87.5% WR \u2014 high edge zone, prioritize",
-    "\u23f0 Best hour: 06:00 ET (78.1% WR, $+29353)"
+    "\ud83d\udca1 Price range 0.0\u20130.1: 87.1% WR \u2014 high edge zone, prioritize",
+    "\ud83d\udeab Price range 0.1\u20130.2: 46.7% WR \u2014 block this range",
+    "\ud83d\udca1 Price range 0.5\u20130.6: 83.3% WR \u2014 high edge zone, prioritize",
+    "\u23f0 Best hour: 02:00 ET (77.8% WR, $+13153)"
   ]
 }

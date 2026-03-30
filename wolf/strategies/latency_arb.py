@@ -65,10 +65,12 @@ class LatencyArb:
 
         btc_price = btc_feed.get_current_price()
         if btc_price == 0:
+            logger.debug("LatencyArb: Binance feed not ready — skipping scan")
             return signals  # Feed not ready yet
-        # In paper mode allow up to 30s staleness; live mode keeps 500ms
-        max_age = 30000 if config.PAPER_MODE else 3000  # REST polling: 2s interval, 3s tolerance
+        # In paper mode allow up to 30s staleness; live mode keeps 3s tolerance
+        max_age = 30000 if config.PAPER_MODE else 3000
         if not btc_feed.is_fresh(max_age_ms=max_age):
+            logger.warning("LatencyArb: Binance feed stale — pausing strategy, not trading blind")
             return signals
 
         # ── Detect new moves and queue pending signals ────────────────────────

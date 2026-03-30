@@ -62,7 +62,7 @@ def _rate_ok(key: str) -> bool:
     return True
 
 # ── Internal send ─────────────────────────────────────────────────────────────
-def _send(text: str, parse_mode: str = "Markdown") -> bool:
+def _send(text: str, parse_mode: str = "HTML") -> bool:
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         logger.debug(f"Telegram not configured — suppressed: {text[:60]}")
         return False
@@ -84,7 +84,7 @@ def send_alert(message: str, level: str = "INFO") -> bool:
         return True
 
     prefix = {"INFO": "🐺", "WARNING": "⚠️", "CRITICAL": "🚨"}.get(level.upper(), "🐺")
-    return _send(f"{prefix} *Wolf*\n{message}")
+    return _send(f"{prefix} <b>Wolf</b>\n{message}")
 
 # ── TRADE ENTRY alert (fires on every live trade) ────────────────────────────
 def alert_trade_entry(
@@ -109,12 +109,13 @@ def alert_trade_entry(
         return
 
     mode = "📋 PAPER" if paper else "🔴 LIVE"
-    short_market = market[:50] + "…" if len(market) > 50 else market
+    short_market = market[:60] + "…" if len(market) > 60 else market
+    short_market = short_market.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
     text = (
-        f"{mode} | {strategy}\n"
+        f"{mode} | <b>{strategy}</b>\n"
         f"📌 {side} @ ${entry_price:.3f}  ·  ${size:.2f}\n"
         f"🎯 Conf: {confidence:.0%}\n"
-        f"_{short_market}_"
+        f"<i>{short_market}</i>"
     )
     _send(text)
 
@@ -139,13 +140,14 @@ def alert_trade_exit(
     """
     icon = ("✅ WIN" if won else "❌ LOSS") + (" 📋" if paper else "")
     hold = _fmt_duration(hold_time_min)
-    short_market = market[:50] + "…" if len(market) > 50 else market
-    quote_line = f"\n\n_{_belfort()}_" if won else ""
+    short_market = market[:60] + "…" if len(market) > 60 else market
+    short_market = short_market.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+    quote_line = f"\n\n<i>{_belfort()}</i>" if won else ""
     text = (
-        f"{icon} | {strategy}\n"
+        f"{icon} | <b>{strategy}</b>\n"
         f"📌 {side} ${entry_price:.3f} → ${exit_price:.3f}\n"
         f"{'💰' if won else '📉'} {pnl:+.2f}  ·  {hold}\n"
-        f"_{short_market}_"
+        f"<i>{short_market}</i>"
         f"{quote_line}"
     )
     _send(text)

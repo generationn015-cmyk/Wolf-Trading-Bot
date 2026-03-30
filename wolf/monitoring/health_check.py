@@ -19,6 +19,11 @@ class HealthCheck:
         self._last_heartbeat: float = 0
         self._running = False
         self._task = None
+        # Feed state tracking — alert on transition, not on every check
+        self._feed_state: dict[str, bool] = {
+            "binance": True,
+            "polymarket": True,
+        }
 
     async def start(self):
         self._running = True
@@ -89,6 +94,31 @@ class HealthCheck:
             "notes": f"Paper trades: {stats['paper']['total']} | Win rate: {stats['paper']['win_rate']:.1%}",
         }
         self.journal.log_health(health_record)
+
+        # ── Feed-down / feed-recovery alerts (transition only, not every check) ──
+        from alerts.telegram_alerts import _send
+        feed_checks = {
+            "binance": results.get("binance_ok", False),
+            "polymarket": results.get("polymarket_ok", False),
+        }
+        for feed, is_ok in feed_checks.items():
+            was_ok = self._feed_state.get(feed, True)
+            if was_ok and not is_ok:
+                # Feed just went DOWN
+                _send(
+                    f"🚨 <b>Feed DOWN: {feed.upper()}</b>\n"
+                    f"Wolf has paused trading on affected strategies.\n"
+                    f"Trading blind = not trading. Investigating now."
+                )
+                logger.critical(f"FEED DOWN: {feed}")
+            elif not was_ok and is_ok:
+                # Feed recovered
+                _send(
+                    f"✅ <b>Feed RESTORED: {feed.upper()}</b>\n"
+                    f"Trading resuming on affected strategies."
+                )
+                logger.info(f"Feed recovered: {feed}")
+            self._feed_state[feed] = is_ok
 
         status_msg = (
             f"Heartbeat OK\n"

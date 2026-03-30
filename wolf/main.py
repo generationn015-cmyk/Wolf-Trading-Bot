@@ -113,6 +113,18 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
 async def main():
     config.validate()
 
+    # ── Pre-flight check ──────────────────────────────────────────────────────
+    # Must pass before Wolf trades. Failures in LIVE mode force paper mode override.
+    import preflight as _pf
+    _pf_ok, _pf_fails = _pf.run(send_telegram=True)
+    if not _pf_ok:
+        logger.critical(f"PRE-FLIGHT FAILED: {_pf_fails}")
+        if not config.PAPER_MODE:
+            logger.critical("Forcing PAPER_MODE=True until pre-flight passes.")
+            config.PAPER_MODE = True
+    else:
+        logger.info("Pre-flight: ✅ all checks passed")
+
     from journal.trade_logger import TradeLogger
     from risk_engine import RiskEngine
     from paper_mode import PaperTrader

@@ -405,6 +405,11 @@ class TASignalStrategy:
 
         self._update_indicators()
 
+        # Pause if Binance feed is stale — never trade TA blind
+        if not btc_feed.is_fresh(max_age_ms=60000):
+            logger.warning("TASignal: Binance feed stale — pausing strategy, not trading blind")
+            return signals
+
         # Need at least enough data for all indicators
         if len(self._btc_ind.prices) < MACD_SLOW + MACD_SIGNAL:
             logger.debug(f"TASignal: warming up ({len(self._btc_ind.prices)} prices, need {MACD_SLOW + MACD_SIGNAL})")
