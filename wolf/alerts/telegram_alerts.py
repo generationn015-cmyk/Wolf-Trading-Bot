@@ -20,16 +20,16 @@ logger = logging.getLogger("wolf.alerts")
 
 # ── Jordan Belfort / Wolf of Wall Street quotes (WIN only) ───────────────────
 _BELFORT_QUOTES = [
-    "The only thing standing between you and your goal is the story you keep telling yourself.",
-    "Act as if! Act as if you're a wealthy man, rich already.",
-    "Winners use words that say 'must' and 'will'.",
-    "Without action, the best intentions in the world are nothing more than that.",
-    "Money is the oxygen of capitalism and I wanna breathe more than any man alive.",
+    "I'm not leaving! I'm not leaving!",
+    "The name of the game: move the money from your client's pocket into your pocket.",
+    "On a daily basis I consume enough drugs to sedate Manhattan, Long Island, and Queens for a month.",
+    "Let me tell you something. There's no nobility in poverty.",
+    "Act as if! Act as if you're a wealthy man, rich already, and you'll become that man.",
     "I want you to deal with your problems by becoming rich.",
-    "There's no nobility in poverty.",
-    "Successful people are 100% convinced that they are masters of their own destiny.",
-    "The only limit to how successful you become is your own ambition.",
-    "Sell me this pen.",
+    "Money is the oxygen of capitalism and I wanna breathe more than any man alive.",
+    "Winners use the word 'must'. Losers use the word 'should'.",
+    "Without action, the best intentions in the world are nothing more than that — intentions.",
+    "I've been a poor man, and I've been a rich man. And I choose rich every fucking time.",
 ]
 
 import random as _random
@@ -108,13 +108,17 @@ def alert_trade_entry(
         logger.debug(f"Entry alert suppressed (rate limit): {key[:50]}")
         return
 
-    mode = "📋 PAPER" if paper else "🔴 LIVE"
-    short_market = market[:60] + "…" if len(market) > 60 else market
+    mode = "PAPER" if paper else "LIVE"
+    dot  = "⚫" if paper else "🔴"
+    short_market = market[:55] + "…" if len(market) > 55 else market
     short_market = short_market.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+    strat_clean = strategy.replace("_", " ").title()
     text = (
-        f"{mode} | <b>{strategy}</b>\n"
-        f"📌 {side} @ ${entry_price:.3f}  ·  ${size:.2f}\n"
-        f"🎯 Conf: {confidence:.0%}\n"
+        f"{dot} <b>TRADE ENTERED</b>  ·  {mode}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<b>{strat_clean}</b>  ·  {side}  ·  <b>${entry_price:.3f}</b>\n"
+        f"Size: <b>${size:.2f}</b>    Confidence: <b>{confidence:.0%}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
         f"<i>{short_market}</i>"
     )
     _send(text)
@@ -138,15 +142,22 @@ def alert_trade_exit(
     💰 +$75.20  ·  4h 12m
     Will the Avalanche win the 2026 NHL?
     """
-    icon = ("✅ WIN" if won else "❌ LOSS") + (" 📋" if paper else "")
+    result_icon = "✅" if won else "❌"
+    result_word  = "WIN" if won else "LOSS"
+    mode = "PAPER" if paper else "LIVE"
     hold = _fmt_duration(hold_time_min)
-    short_market = market[:60] + "…" if len(market) > 60 else market
+    pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
+    short_market = market[:55] + "…" if len(market) > 55 else market
     short_market = short_market.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-    quote_line = f"\n\n<i>{_belfort()}</i>" if won else ""
+    strat_clean = strategy.replace("_", " ").title()
+    quote_line = f"\n\n<i>\"{_belfort()}\"</i>" if won else ""
     text = (
-        f"{icon} | <b>{strategy}</b>\n"
-        f"📌 {side} ${entry_price:.3f} → ${exit_price:.3f}\n"
-        f"{'💰' if won else '📉'} {pnl:+.2f}  ·  {hold}\n"
+        f"{result_icon} <b>TRADE CLOSED  ·  {result_word}</b>  ·  {mode}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<b>{strat_clean}</b>  ·  {side}\n"
+        f"Entry: <b>${entry_price:.3f}</b>  →  Exit: <b>${exit_price:.3f}</b>\n"
+        f"P&amp;L: <b>{pnl_str}</b>    Hold: {hold}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
         f"<i>{short_market}</i>"
         f"{quote_line}"
     )
