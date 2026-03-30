@@ -83,32 +83,76 @@ def get_orderbook(market_id: str) -> dict:
         logger.warning(f"get_orderbook error {market_id}: {e}")
         return {}
 
-def get_top_wallets(limit: int = 10) -> list[dict]:
-    """Returns top Polymarket wallets by P&L from leaderboard."""
+POLYMARKET_DATA_URL = "https://data-api.polymarket.com"
+
+def get_top_wallets(limit: int = 20) -> list[dict]:
+    """Returns top Polymarket wallets by P&L from leaderboard (v1 endpoint)."""
     try:
         resp = requests.get(
-            f"{config.POLYMARKET_GAMMA_URL}/leaderboard",
-            params={"limit": limit, "window": "all"},
+            f"{POLYMARKET_DATA_URL}/v1/leaderboard",
+            params={"limit": min(limit, 50), "orderBy": "PNL", "window": "all"},
             timeout=10
         )
         if resp.ok:
             data = resp.json()
-            return data if isinstance(data, list) else data.get("data", [])
+            # Normalize to expected field names used by CopyTrader
+            normalized = []
+            for entry in (data if isinstance(data, list) else []):
+                normalized.append({
+                    "proxy_wallet": entry.get("proxyWallet", ""),
+                    "wallet": entry.get("proxyWallet", ""),
+                    "profit": entry.get("pnl", 0),
+                    "percentPositive": 0,   # not in leaderboard; enriched via activity scan
+                    "tradesCount": 0,
+                    "avgPositionSize": 0,
+                    "maxPositionSize": 0,
+                    "activeDays": 0,
+                    "marketsTraded": 0,
+                    "userName": entry.get("userName", ""),
+                    "vol": entry.get("vol", 0),
+                })
+            return normalized
     except Exception as e:
         logger.warning(f"get_top_wallets error: {e}")
     return []
 
-def get_wallet_positions(wallet_address: str, limit: int = 20) -> list[dict]:
-    """Returns recent trades/positions for a wallet."""
+def get_wallet_activity(wallet_address: str, limit: int = 20) -> list[dict]:
+    """Returns recent trade activity for a wallet (data-api v1)."""
     try:
         resp = requests.get(
-            f"{config.POLYMARKET_GAMMA_URL}/activity",
+            f"{POLYMARKET_DATA_URL}/activity",
             params={"user": wallet_address, "limit": limit},
             timeout=10
         )
         if resp.ok:
             data = resp.json()
-            return data if isinstance(data, list) else data.get("data", [])
+            return data if isinstance(data, list) else []
+    except Exception as e:
+        logger.warning(f"get_wallet_activity error: {e}")
+    return []
+
+def get_wallet_positions(wallet_address: str, limit: int = 20) -> list[dict]:
+    """Returns open positions for a wallet (data-api v1)."""
+    try:
+        resp = requests.get(
+            f"{POLYMARKET_DATA_URL}/positions",
+            params={"user": wallet_address, "limit": limit},
+            timeout=10
+        )
+        if resp.ok:
+            data = resp.json()
+            # Normalize to format expected by CopyTrader.scan()
+            normalized = []
+            for p in (data if isinstance(data, list) else []):
+                normalized.append({
+                    "id": p.get("asset", ""),
+                    "market": p.get("conditionId", ""),
+                    "side": "YES",   # positions don't specify side directly; default YES
+                    "size": float(p.get("size", 0)),
+                    "price": float(p.get("avgPrice", 0.5)),
+                    "timestamp": 0,  # no timestamp on positions endpoint
+                })
+            return normalized
     except Exception as e:
         logger.warning(f"get_wallet_positions error: {e}")
     return []

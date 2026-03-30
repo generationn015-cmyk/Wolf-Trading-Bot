@@ -9,7 +9,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Optional
 import config
-from feeds.polymarket_feed import get_top_wallets, get_wallet_positions, get_market_volume
+from feeds.polymarket_feed import get_top_wallets, get_wallet_activity, get_market_volume
 from intelligence import IntelligenceEngine, WalletMetrics
 
 logger = logging.getLogger("wolf.strategy.copy_trading")
@@ -92,31 +92,30 @@ class CopyTrader:
 
         for addr, profile in self.wallets.items():
             try:
-                positions = get_wallet_positions(addr, limit=5)
-                if not positions:
+                # Use activity feed — has timestamps, side, size, price
+                activity = get_wallet_activity(addr, limit=5)
+                if not activity:
                     continue
 
-                latest = positions[0]
-                trade_id = latest.get("id", "")
+                latest = activity[0]
+                trade_id = latest.get("transactionHash", "")
                 if trade_id == profile.last_seen_trade_id:
                     continue  # Already seen this trade
 
                 # Check freshness
                 trade_ts = latest.get("timestamp", 0)
-                if isinstance(trade_ts, str):
-                    from datetime import datetime
-                    try:
-                        trade_ts = datetime.fromisoformat(trade_ts.replace("Z", "+00:00")).timestamp()
-                    except Exception:
-                        trade_ts = 0
                 age_sec = time.time() - float(trade_ts)
                 if age_sec > config.COPY_TRADE_MAX_AGE_SEC:
                     continue
 
                 # Extract trade details
-                market_id = latest.get("market", "")
-                side = latest.get("side", "").upper()
-                size = float(latest.get("size", 0))
+                market_id = latest.get("conditionId", "")
+                side = latest.get("side", "").upper()  # "BUY"/"SELL" → normalize below
+                if side == "BUY":
+                    side = "YES"
+                elif side == "SELL":
+                    side = "NO"
+                size = float(latest.get("usdcSize", latest.get("size", 0)))
                 price = float(latest.get("price", 0.5))
 
                 if size < config.COPY_TRADE_MIN_SIZE:

@@ -1,8 +1,8 @@
 # SESSION-STATE.md — Active Working Memory
 
 ## Current Focus
-- Wolf trading bot initial build — setup phase complete, entering Build Mode
-- Waiting on videos from Jefe for trading strategy breakdown
+- Wolf trading bot — copy trading wallets FIXED (see Recent Decisions)
+- Model routing and compaction limits locked down
 
 ## Key Context
 - Running on Hostinger VPS (Docker container)
@@ -22,15 +22,18 @@
 - [ ] Set up project memory file: memory/projects/wolf-trading.md
 
 ## Recent Decisions
-- Model stack: Claude Sonnet 4.6 (OpenRouter) primary, Gemini 2.5 Pro challenger
+- **Model routing:** GPT-5.4 default for conversation; Claude Sonnet 4.6 (OpenRouter) for strategy/build/code work
+- **No fallbacks to OpenAI direct** — quota issues; OpenRouter only for Claude
+- **Compaction:** reserveTokensFloor=50k → fires at ~150k tokens (not 200k); memoryFlush enabled before compaction
+- **Polymarket feed fixed:** leaderboard now uses `data-api.polymarket.com/v1/leaderboard` (was 404); wallet activity uses `/activity?user=` endpoint; wallet positions via `/positions?user=`
+- Copy trading strategy now pulls live top-20 wallets by PnL and scans their recent activity
 - Perplexity = primary research/search layer
-- Brave = raw fallback search
 - Trading system phases: Research → Strategy → Risk Engine → Backtesting → Paper Trading → Live (small sizing)
 - No live execution without explicit Jefe authorization
-- Cost discipline: model calls only where judgment is needed; rule-based logic elsewhere
 
 ## Blockers
-- None — waiting on videos/X post for strategy research
+- Wolf not running as daemon yet — copy trading wallets will populate once wolf/main.py is started
+- Need Jefe to confirm target market and exchange before advancing strategies
 
 ---
 Last updated: 2026-03-29
