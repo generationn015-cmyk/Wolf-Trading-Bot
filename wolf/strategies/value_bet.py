@@ -29,11 +29,13 @@ Buy the underdog at 0.10–0.20 with tight sizing.
 
 Also: mid-range markets (0.35–0.65) with clear momentum signals.
 """
+import os
 import time
 import logging
 import json as _json
 import requests
 import config
+from datetime import datetime, timezone, timedelta
 from learning_engine import learning
 
 logger = logging.getLogger("wolf.strategy.value_bet")
@@ -71,6 +73,8 @@ class ValueBetStrategy:
                 return self._cache
 
             filtered = []
+            now_dt = datetime.now(timezone.utc)
+            max_days = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))
             for m in markets:
                 op = m.get("outcomePrices", [])
                 if isinstance(op, str):
@@ -86,6 +90,19 @@ class ValueBetStrategy:
                 vol = float(m.get("volumeNum", 0) or 0)
                 if vol < MIN_VOLUME:
                     continue
+
+                # Skip markets that resolve more than MAX_DAYS out (avoid freezing capital)
+                end_raw = m.get("endDate") or m.get("endDateIso") or ""
+                if end_raw:
+                    try:
+                        end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+                        if not end_dt.tzinfo:
+                            end_dt = end_dt.replace(tzinfo=timezone.utc)
+                        days_out = (end_dt - now_dt).days
+                        if days_out > max_days:
+                            continue
+                    except Exception:
+                        pass  # If we can't parse the date, allow the market through
 
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1
