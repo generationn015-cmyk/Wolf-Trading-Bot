@@ -1,8 +1,7 @@
 #!/bin/bash
 # Wolf Watchdog — keeps Wolf running forever.
 # Restarts on crash with exponential backoff (cap 60s).
-# Logs to /data/.openclaw/workspace/wolf/wolf.log
-# Usage: bash watchdog.sh &
+# Alerts Jefe via Telegram on ALL unexpected exits.
 
 WOLF_DIR="/data/.openclaw/workspace/wolf"
 LOG="$WOLF_DIR/wolf.log"
@@ -17,6 +16,19 @@ pkill -f "native_monitor.py" 2>/dev/null
 sleep 1
 python3 -u "$WOLF_DIR/scripts/native_monitor.py" >> /tmp/wolf_monitor.log 2>&1 &
 echo "$(date) [watchdog] Native monitor PID: $!" | tee -a "$LOG"
+
+send_telegram() {
+    local MSG="$1"
+    local BOT_TOKEN CHAT_ID
+    BOT_TOKEN=$(grep -m1 TELEGRAM_BOT_TOKEN "$WOLF_DIR/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ')
+    CHAT_ID=$(grep -m1 TELEGRAM_CHAT_ID "$WOLF_DIR/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ')
+    if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
+        curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\":\"${CHAT_ID}\",\"text\":\"${MSG}\"}" \
+            > /dev/null 2>&1
+    fi
+}
 
 while true; do
     cd "$WOLF_DIR" || exit 1
@@ -39,22 +51,18 @@ while true; do
 
     echo "$(date) [watchdog] Wolf exited (code $EXIT_CODE). Restarting in ${BACKOFF}s..." | tee -a "$LOG"
 
-    # Notify via Telegram on unexpected crash (not clean exit)
+    # Alert Jefe on all unexpected exits
+    if [ $EXIT_CODE -eq 137 ]; then
+        send_telegram "Wolf killed by OS (OOM kill / exit 137). Auto-restarting in ${BACKOFF}s."
+    elif [ $EXIT_CODE -ne 0 ]; then
+        send_telegram "Wolf crashed (exit ${EXIT_CODE}). Auto-restarting in ${BACKOFF}s."
+    fi
+
     if [ $EXIT_CODE -ne 0 ]; then
-        BOT_TOKEN=$(grep TELEGRAM_BOT_TOKEN "$WOLF_DIR/.env" | cut -d= -f2)
-        CHAT_ID=$(grep TELEGRAM_CHAT_ID "$WOLF_DIR/.env" | cut -d= -f2)
-        if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
-            curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-                -d "chat_id=${CHAT_ID}" \
-                -d "text=🚨 Wolf crashed (exit $EXIT_CODE). Restarting in ${BACKOFF}s..." \
-                -d "parse_mode=Markdown" > /dev/null 2>&1
-        fi
-        # Exponential backoff on repeated crashes
         sleep "$BACKOFF"
         BACKOFF=$((BACKOFF * 2))
         [ $BACKOFF -gt $MAX_BACKOFF ] && BACKOFF=$MAX_BACKOFF
     else
-        # Clean exit (e.g. kill switch, maintenance) — short pause then restart
         BACKOFF=2
         sleep 3
     fi
