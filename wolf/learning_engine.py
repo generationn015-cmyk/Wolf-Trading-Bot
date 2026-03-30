@@ -117,13 +117,13 @@ class LearningEngine:
                            SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins
                     FROM paper_trades WHERE resolved=1 AND simulated=0
                     GROUP BY ROUND(entry_price, 1)
-                    HAVING cnt >= 3
+                    HAVING cnt >= 15  -- need meaningful sample before blocking any price range
                 """).fetchall()
 
                 self.bad_price_ranges = []
                 for price, cnt, wins in loss_rows:
                     wr = wins / cnt
-                    if wr < 0.50:
+                    if wr < 0.40:  # Only block truly bad ranges (40% WR floor)
                         # This price bucket is a loser — flag it
                         low = round(price - 0.05, 2)
                         high = round(price + 0.05, 2)

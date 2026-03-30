@@ -65,7 +65,7 @@ class OrderManager:
         ) if self.paper else 0
         # Per-strategy cap: half of total open positions max
         # Prevents any one strategy monopolizing all slots, but scales with MAX_OPEN_POSITIONS
-        max_per = max(2, config.MAX_OPEN_POSITIONS // 2)
+        max_per = max(3, config.MAX_OPEN_POSITIONS * 3 // 4)  # 75% of total slots per strategy
         if strat_open >= max_per:
             return {"status": "blocked", "reason": f"Strategy slot cap: {strategy} already has {strat_open}/{max_per} open"}
 

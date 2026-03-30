@@ -166,6 +166,10 @@ class ValueBetStrategy:
         signals = []
         now = time.time()
         markets = self._get_markets()
+        
+        # Track event families already signaled this cycle — one signal per underlying event
+        # Prevents: holding Harvey YES@5yr + YES@10yr + YES@20yr simultaneously
+        _event_families: set[str] = set()
 
         for market in markets:
             mid = market["_id"]
@@ -184,6 +188,13 @@ class ValueBetStrategy:
             if side and entry and confidence and confidence >= config.MIN_CONFIDENCE:
                 self._fired[mid] = now
                 q = (market.get("question") or market.get("title") or "")
+                
+                # One position per event family (first 35 chars of question = event fingerprint)
+                event_key = q[:35].strip().lower()
+                if event_key in _event_families:
+                    continue  # Already have a signal on this underlying event
+                _event_families.add(event_key)
+                
                 signals.append({
                     "strategy":    "value_bet",
                     "venue":       "polymarket",

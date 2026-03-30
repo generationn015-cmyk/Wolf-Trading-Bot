@@ -121,7 +121,8 @@ def alert_trade_entry(
         f"━━━━━━━━━━━━━━━━━━\n"
         f"<i>{short_market}</i>"
     )
-    _send(text)
+    sent = _send(text)
+    logger.info(f"Trade entry alert {'sent' if sent else 'FAILED'}: {strategy} {side} @{entry_price:.3f} paper={paper}")
 
 # ── TRADE EXIT alert (fires on real resolution) ──────────────────────────────
 def alert_trade_exit(
