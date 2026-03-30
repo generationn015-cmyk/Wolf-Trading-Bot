@@ -94,6 +94,19 @@ def check_critical_errors():
     except:
         return []
 
+def wolf_memory_mb():
+    """Return Wolf process RSS memory in MB. Returns 0 if not running."""
+    try:
+        r = subprocess.run(['pgrep','-f','python3.*main.py'], capture_output=True, text=True)
+        pid = r.stdout.strip().split()[0]
+        rss = open(f'/proc/{pid}/status').read()
+        for line in rss.splitlines():
+            if line.startswith('VmRSS:'):
+                return int(line.split()[1]) // 1024  # kB → MB
+    except:
+        pass
+    return 0
+
 # ── Main loop ─────────────────────────────────────────────────────────────────
 print(f'🐺 Wolf native monitor started — checking every {CHECK_SEC//60}min — ZERO API cost')
 creds       = load_creds()
@@ -121,6 +134,13 @@ while True:
         crits = check_critical_errors()
         if crits:
             issues.append(f'{len(crits)} CRITICAL error(s)')
+
+        # Memory guard — proactive restart before kernel OOM kill (exit 137)
+        mem_mb = wolf_memory_mb()
+        if mem_mb > 800:  # Wolf should never need >800MB; normal is ~70MB
+            issues.append(f'High memory: {mem_mb}MB — preemptive restart')
+            ok = restart_wolf()
+            actions.append(f'⚡ Memory restart — {"OK" if ok else "FAILED"}')
 
         if issues:
             total, wr, pnl = get_stats()
