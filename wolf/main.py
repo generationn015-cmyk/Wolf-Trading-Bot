@@ -105,6 +105,8 @@ async def main():
     from strategies.latency_arb import LatencyArb
     from strategies.copy_trading import CopyTrader
     from strategies.market_making import MarketMaker
+    from strategies.timezone_arb import TimezoneArb
+    from strategies.complement_arb import ComplementArb
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
     from learning_engine import learning
@@ -119,6 +121,8 @@ async def main():
     latency_arb    = LatencyArb()
     copy_trader    = CopyTrader()
     market_maker   = MarketMaker()
+    timezone_arb   = TimezoneArb()
+    complement_arb = ComplementArb()
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
     logger.info(f"🐺 Wolf starting in {mode} mode")
@@ -204,7 +208,34 @@ async def main():
             except Exception as e:
                 logger.warning(f"Copy trading error: {e}")
 
-            # Priority 3: Market Making
+            # Priority 3: Complement Arb (near-riskless — highest priority after latency arb)
+            try:
+                for sig in await complement_arb.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] ComplArb: "
+                            f"{sig['market_id'][:20]}... {sig['side']} "
+                            f"edge={sig.get('edge', 0):.3f}"
+                        )
+            except Exception as e:
+                logger.warning(f"Complement arb error: {e}")
+
+            # Priority 4: Timezone Arb (US sleep window — fires 2–9 AM ET)
+            try:
+                for sig in await timezone_arb.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] TZArb: "
+                            f"[{sig.get('region','?')}] "
+                            f"{sig['market_id'][:20]}... {sig['side']} "
+                            f"@ {sig['entry_price']:.2f}"
+                        )
+            except Exception as e:
+                logger.warning(f"Timezone arb error: {e}")
+
+            # Priority 5: Market Making
             try:
                 for sig in await market_maker.scan():
                     res = order_manager.execute_signal(sig)
