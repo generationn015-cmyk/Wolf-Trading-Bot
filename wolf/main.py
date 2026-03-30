@@ -73,19 +73,14 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
             # Notify MM so its slot opens up for re-entry
             if trade.strategy == "market_making" and market_maker is not None:
                 market_maker.on_trade_resolved(trade.market_id)
-            journal.log_paper_trade({
-                "timestamp": now,
-                "strategy": trade.strategy,
-                "venue": trade.venue,
-                "market_id": trade.market_id,
-                "side": trade.side,
-                "size": trade.size,
-                "entry_price": trade.entry_price,
-                "exit_price": result.exit_price,
-                "pnl": result.pnl,
-                "won": result.won,
-                "resolved": True,
-            })
+            journal.update_paper_trade_resolved(
+                market_id=trade.market_id,
+                strategy=trade.strategy,
+                side=trade.side,
+                won=result.won,
+                exit_price=result.exit_price,
+                pnl=result.pnl,
+            )
             resolved_count += 1
 
     if resolved_count:
