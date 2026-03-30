@@ -118,11 +118,15 @@ class PaperTrader:
                 trade.won = won
                 trade.resolved = True
                 if won:
+                    # Polymarket pays $1 per share at resolution.
+                    # You paid entry_price per share → profit = size * (1/entry_price - 1)
+                    # e.g. $40 at 0.25 → win $40*(4-1) = $120 profit
                     trade.exit_price = 1.0
-                    trade.pnl = trade.size * (1.0 - trade.entry_price)
+                    trade.pnl = trade.size * (1.0 / trade.entry_price - 1.0)
                 else:
+                    # Shares expire worthless → lose full stake
                     trade.exit_price = 0.0
-                    trade.pnl = -trade.size * trade.entry_price
+                    trade.pnl = -trade.size
                 self.balance += trade.pnl
                 self.trades.append(trade)
                 to_remove.append(trade)

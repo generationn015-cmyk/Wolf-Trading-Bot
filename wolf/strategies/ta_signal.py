@@ -86,6 +86,14 @@ class TAIndicators:
             self._obv -= volume
         self._obv_series.append(self._obv)
 
+    def is_ready(self) -> bool:
+        """True once enough ticks collected for all indicators (MACD needs most: 35)."""
+        return len(self.prices) >= MACD_SLOW + MACD_SIGNAL
+
+    def add_price(self, price: float):
+        """Alias for update() — for testing and external callers."""
+        self.update(price)
+
     def _ema(self, data: list, period: int) -> float:
         if len(data) < period:
             return sum(data) / len(data)

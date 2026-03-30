@@ -18,6 +18,24 @@ import config
 
 logger = logging.getLogger("wolf.alerts")
 
+# ── Jordan Belfort / Wolf of Wall Street quotes (WIN only) ───────────────────
+_BELFORT_QUOTES = [
+    "The only thing standing between you and your goal is the story you keep telling yourself.",
+    "Act as if! Act as if you're a wealthy man, rich already.",
+    "Winners use words that say 'must' and 'will'.",
+    "Without action, the best intentions in the world are nothing more than that.",
+    "Money is the oxygen of capitalism and I wanna breathe more than any man alive.",
+    "I want you to deal with your problems by becoming rich.",
+    "There's no nobility in poverty.",
+    "Successful people are 100% convinced that they are masters of their own destiny.",
+    "The only limit to how successful you become is your own ambition.",
+    "Sell me this pen.",
+]
+
+import random as _random
+def _belfort() -> str:
+    return _random.choice(_BELFORT_QUOTES)
+
 # ── Alert rate limiter ────────────────────────────────────────────────────────
 # Prevents spam when multiple strategies fire on the same market.
 # Max 1 entry alert per (strategy+market_id) per 30 minutes.
@@ -122,11 +140,13 @@ def alert_trade_exit(
     icon = ("✅ WIN" if won else "❌ LOSS") + (" 📋" if paper else "")
     hold = _fmt_duration(hold_time_min)
     short_market = market[:50] + "…" if len(market) > 50 else market
+    quote_line = f"\n\n_{_belfort()}_" if won else ""
     text = (
         f"{icon} | {strategy}\n"
         f"📌 {side} ${entry_price:.3f} → ${exit_price:.3f}\n"
         f"{'💰' if won else '📉'} {pnl:+.2f}  ·  {hold}\n"
         f"_{short_market}_"
+        f"{quote_line}"
     )
     _send(text)
 
