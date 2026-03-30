@@ -63,7 +63,9 @@ class OrderManager:
             1 for t in self.paper.open_trades
             if t.strategy == strategy
         ) if self.paper else 0
-        max_per = getattr(config, 'MAX_POSITIONS_PER_STRATEGY', 2)
+        # Per-strategy cap: half of total open positions max
+        # Prevents any one strategy monopolizing all slots, but scales with MAX_OPEN_POSITIONS
+        max_per = max(2, config.MAX_OPEN_POSITIONS // 2)
         if strat_open >= max_per:
             return {"status": "blocked", "reason": f"Strategy slot cap: {strategy} already has {strat_open}/{max_per} open"}
 

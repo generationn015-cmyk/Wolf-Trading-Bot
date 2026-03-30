@@ -74,7 +74,6 @@ class ValueBetStrategy:
 
             filtered = []
             now_dt = datetime.now(timezone.utc)
-            max_days = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))
             for m in markets:
                 op = m.get("outcomePrices", [])
                 if isinstance(op, str):
@@ -91,18 +90,18 @@ class ValueBetStrategy:
                 if vol < MIN_VOLUME:
                     continue
 
-                # Skip markets that resolve more than MAX_DAYS out (avoid freezing capital)
+                # Score market duration — shorter = higher priority, but don't block long ones
                 end_raw = m.get("endDate") or m.get("endDateIso") or ""
+                days_out = 999
                 if end_raw:
                     try:
                         end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
                         if not end_dt.tzinfo:
                             end_dt = end_dt.replace(tzinfo=timezone.utc)
-                        days_out = (end_dt - now_dt).days
-                        if days_out > max_days:
-                            continue
+                        days_out = max(0, (end_dt - now_dt).days)
                     except Exception:
-                        pass  # If we can't parse the date, allow the market through
+                        pass
+                m["_days_to_expiry"] = days_out
 
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1
@@ -195,6 +194,7 @@ class ValueBetStrategy:
                     "edge":        round((1.0 - entry) * confidence - entry * (1 - confidence) - POLY_FEE, 3),
                     "volume":      vol,
                     "timestamp":   now,
+                    "days_to_expiry": market.get("_days_to_expiry", 999),
                     "reason":      f"ValueBet: {reason} | {q[:40]}",
                 })
                 logger.info(f"📈 ValueBet: {reason} | {q[:40]}")
@@ -202,4 +202,6 @@ class ValueBetStrategy:
             if len(signals) >= 3:
                 break
 
+        # Prioritize shorter-duration markets — faster data feedback, less capital lock-up
+        signals.sort(key=lambda s: s.get("days_to_expiry", 999))
         return signals
