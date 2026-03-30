@@ -106,18 +106,31 @@ class OrderManager:
             "reason":      signal.get("reason", ""),
         })
         if not inserted:
-            # DB dedup caught it — remove from in-memory open_trades too
             if trade in self.paper.open_trades:
                 self.paper.open_trades.remove(trade)
             return {"status": "dedup_blocked", "reason": "DB dedup"}
 
-        # One-time gate alert (not a halt)
+        # Entry alert (live only — suppressed in paper mode inside alert)
+        from alerts.telegram_alerts import alert_trade_entry
+        alert_trade_entry(
+            strategy=strategy,
+            market=signal.get("reason", trade.market_id)[:80],
+            side=side,
+            size=size,
+            entry_price=entry_price,
+            confidence=signal.get("confidence", 0),
+            paper=config.PAPER_MODE,
+        )
+
+        # One-time gate alert
         if not self._gate_alerted:
             gate_passed, _ = self.paper.has_passed_gate()
             if gate_passed:
                 self._gate_alerted = True
-                from alerts.telegram_alerts import alert_paper_gate_passed
+                from alerts.telegram_alerts import alert_paper_gate_passed, alert_wr_threshold
                 alert_paper_gate_passed(self.paper.get_stats())
+                stats = self.paper.get_stats()
+                alert_wr_threshold(stats["win_rate"], stats["total_trades"], stats["total_pnl"])
 
         return {"status": "paper_executed", "trade": trade, "size": size}
 

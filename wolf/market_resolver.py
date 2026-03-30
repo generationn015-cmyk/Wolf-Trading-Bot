@@ -141,11 +141,25 @@ def _extract_outcome(m: dict) -> str | None:
     return None  # Closed but outcome not yet deterministic (pending UMA dispute etc.)
 
 
+# In-memory map of conditionId → numeric id (populated as markets are seen)
+_cid_to_id: dict[str, str] = {}
+
+def _register_market(m: dict):
+    """Cache the conditionId → numeric id mapping for future lookups."""
+    cid = m.get("conditionId", "")
+    mid = str(m.get("id", ""))
+    if cid and mid:
+        _cid_to_id[cid] = mid
+
+
 def get_current_price(market_id: str) -> tuple[float, float] | None:
     """
     Get current YES/NO mid-prices for a live market.
     Returns (yes_price, no_price) or None on failure.
-    Used to track unrealised P&L on open positions.
+
+    NOTE: gamma-api ?conditionId= filter is broken — returns arbitrary markets.
+    Fix: if we have a numeric id cached, use that. Otherwise fetch by numeric id
+    from the active market list and match client-side.
     """
     now = time.time()
 
@@ -154,38 +168,64 @@ def get_current_price(market_id: str) -> tuple[float, float] | None:
         if now - fetched_at < PRICE_CACHE_TTL:
             return yes_p, no_p
 
+    def _extract_prices(m: dict) -> tuple[float, float] | None:
+        op = m.get("outcomePrices", "[]")
+        if isinstance(op, str):
+            try:
+                op = json.loads(op)
+            except Exception:
+                return None
+        if op and len(op) >= 2:
+            try:
+                yes_p, no_p = float(op[0]), float(op[1])
+                if yes_p + no_p < 0.01:
+                    return None  # Zeroed-out / closed market
+                return yes_p, no_p
+            except (ValueError, TypeError):
+                pass
+        return None
+
     try:
-        params = (
-            {"conditionId": market_id}
-            if market_id.startswith("0x")
-            else {"id": market_id}
-        )
+        # Strategy 1: use cached numeric id for direct lookup
+        numeric_id = _cid_to_id.get(market_id) if market_id.startswith("0x") else market_id
+
+        if numeric_id:
+            resp = requests.get(
+                "https://gamma-api.polymarket.com/markets",
+                params={"id": numeric_id},
+                timeout=6,
+            )
+            if resp.ok:
+                raw = resp.json()
+                markets = raw if isinstance(raw, list) else [raw]
+                for m in markets:
+                    if str(m.get("id", "")) == numeric_id:
+                        prices = _extract_prices(m)
+                        if prices:
+                            _price_cache[market_id] = (*prices, now)
+                            _register_market(m)
+                            return prices
+
+        # Strategy 2: fetch active market batch and match conditionId client-side
         resp = requests.get(
             "https://gamma-api.polymarket.com/markets",
-            params=params,
-            timeout=6,
+            params={"active": True, "closed": False, "limit": 100},
+            timeout=8,
         )
-        if not resp.ok:
-            return None
+        if resp.ok:
+            for m in resp.json():
+                _register_market(m)  # Build up our cid→id cache
+                m_cid = m.get("conditionId", "")
+                m_id  = str(m.get("id", ""))
+                matched = (market_id.startswith("0x") and m_cid == market_id) or                           (not market_id.startswith("0x") and m_id == market_id)
+                if matched:
+                    prices = _extract_prices(m)
+                    if prices:
+                        _price_cache[market_id] = (*prices, now)
+                        return prices
 
-        raw = resp.json()
-        markets = raw if isinstance(raw, list) else [raw]
-        for m in markets:
-            op = m.get("outcomePrices", "[]")
-            if isinstance(op, str):
-                try:
-                    op = json.loads(op)
-                except Exception:
-                    continue
-            if op and len(op) >= 2:
-                try:
-                    yes_p, no_p = float(op[0]), float(op[1])
-                    _price_cache[market_id] = (yes_p, no_p, now)
-                    return yes_p, no_p
-                except (ValueError, TypeError):
-                    continue
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"get_current_price error {market_id[:20]}: {e}")
 
     return None
 

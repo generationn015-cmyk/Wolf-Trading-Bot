@@ -57,8 +57,7 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
         outcome = get_real_outcome(trade.market_id)
 
         if outcome is None:
-            # Market not resolved yet — this is normal for prediction markets
-            # Log a warning only if position has been open >24h (stale guard)
+            # Market not resolved yet — normal for prediction markets
             age_h = (now - trade.timestamp) / 3600
             if age_h > 24:
                 logger.warning(
@@ -68,6 +67,7 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
             continue
 
         # Real outcome received — resolve the trade
+        hold_min = (now - trade.timestamp) / 60
         result = paper.resolve_trade(trade.market_id, outcome)
         if result:
             if trade.strategy == "market_making" and market_maker is not None:
@@ -83,11 +83,26 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
                 )
             except Exception as db_err:
                 logger.debug(f"Resolve DB update skipped ({db_err})")
+
+            # Fire Telegram exit alert (live only — paper suppressed inside alert)
+            from alerts.telegram_alerts import alert_trade_exit
+            alert_trade_exit(
+                strategy=trade.strategy,
+                market=trade.market_id,
+                side=trade.side,
+                entry_price=trade.entry_price,
+                exit_price=result.exit_price,
+                pnl=result.pnl,
+                won=result.won,
+                hold_time_min=hold_min,
+                paper=config.PAPER_MODE,
+            )
+
             resolved_count += 1
             logger.info(
                 f"[REAL] {'WIN ✅' if result.won else 'LOSS ❌'} | "
                 f"{trade.strategy} {trade.side}@{trade.entry_price:.3f} → "
-                f"{outcome} | P&L ${result.pnl:+.2f}"
+                f"{outcome} | P&L ${result.pnl:+.2f} | held {hold_min:.0f}m"
             )
 
     if resolved_count:

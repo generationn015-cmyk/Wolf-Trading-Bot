@@ -40,19 +40,26 @@ TELEGRAM_CHAT_ID            = os.getenv("TELEGRAM_CHAT_ID", "")
 BINANCE_WS_BTC              = "wss://stream.binance.com:9443/ws/btcusdt@trade"
 BINANCE_WS_ETH              = "wss://stream.binance.com:9443/ws/ethusdt@trade"
 
+# ─── CAPITAL CONFIGURATION ───────────────────────────────────────────────────
+LIVE_STARTING_CAPITAL       = float(os.getenv("LIVE_STARTING_CAPITAL", "100.0"))   # Phase 1 live: $100
+PAPER_STARTING_CAPITAL      = float(os.getenv("PAPER_STARTING_CAPITAL", "1000.0")) # Paper continues at $1K
+
 # ─── RISK ENGINE PARAMETERS ──────────────────────────────────────────────────
-MAX_POSITION_PCT            = float(os.getenv("MAX_POSITION_PCT", "0.08"))   # 8% max per trade
-DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt
-KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch
+# Live: 8% per trade on $100 = $8 max/trade. Conservative for Phase 1.
+MAX_POSITION_PCT            = float(os.getenv("MAX_POSITION_PCT", "0.08"))   # 8% max per trade ($8 on $100 live)
+MAX_POSITION_LIVE           = float(os.getenv("MAX_POSITION_LIVE", "8.0"))   # Hard cap $8 per live trade
+MIN_POSITION_LIVE           = float(os.getenv("MIN_POSITION_LIVE", "1.0"))   # Min $1 (Polymarket minimum)
+DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt ($20 on live)
+KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch ($40 loss → full stop)
 MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))
-MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))  # Allow 3 concurrent per strategy
+MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))
 MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
 
 # ─── STRATEGY PARAMETERS ─────────────────────────────────────────────────────
 LATENCY_ARB_THRESHOLD       = float(os.getenv("LATENCY_ARB_THRESHOLD", "0.003"))  # 0.3% divergence
 MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.68"))     # Balanced: volume + quality
 VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.30"))  # raised 0.15→0.30: allows 55/45–65/35 markets; still blocks toxic 70/30+
-COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "28800"))  # 8h — paper mode wide window; tighten to 300-600 for live
+COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "600" if not (os.getenv("WOLF_PAPER_MODE","true").lower() != "false") else "28800"))  # Live=10min fresh signals only; Paper=8h wide window
 COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "30"))   # $30 min whale size
 COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "5"))     # Demo validation trades (low — leaderboard wallets have proven PnL track record)
 WHALE_ALERT_THRESHOLD       = float(os.getenv("WHALE_ALERT_THRESHOLD", "500")) # $500 whale alert
