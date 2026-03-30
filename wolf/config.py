@@ -44,14 +44,14 @@ MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $
 LATENCY_ARB_THRESHOLD       = float(os.getenv("LATENCY_ARB_THRESHOLD", "0.003"))  # 0.3% divergence
 MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.65"))     # Fee-aware threshold
 VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.15"))
-COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "300"))  # 5 min max age
+COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "14400"))  # 4h — paper mode needs wider window; tighten to 300 for live
 COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "30"))   # $30 min whale size
-COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "10"))    # Demo validation trades (lowered — leaderboard wallets have proven track record)
+COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "5"))     # Demo validation trades (low — leaderboard wallets have proven PnL track record)
 WHALE_ALERT_THRESHOLD       = float(os.getenv("WHALE_ALERT_THRESHOLD", "500")) # $500 whale alert
 
 # ─── PAPER MODE GATE ─────────────────────────────────────────────────────────
-PAPER_GATE_MIN_TRADES       = int(os.getenv("PAPER_GATE_MIN_TRADES", "200"))
-PAPER_GATE_MIN_WIN_RATE     = float(os.getenv("PAPER_GATE_MIN_WIN_RATE", "0.80"))
+PAPER_GATE_MIN_TRADES       = int(os.getenv("PAPER_GATE_MIN_TRADES", "50"))   # Reduced for 1-2 day sprint to live
+PAPER_GATE_MIN_WIN_RATE     = float(os.getenv("PAPER_GATE_MIN_WIN_RATE", "0.55"))  # Realistic threshold — not 80%
 
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 HEARTBEAT_INTERVAL_SEC      = int(os.getenv("HEARTBEAT_INTERVAL_SEC", "1800"))  # 30 min

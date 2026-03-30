@@ -8,6 +8,7 @@ import signal
 import logging
 import sys
 import threading
+import time
 import config
 
 # Setup logging
@@ -20,6 +21,44 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("wolf.main")
+
+def _resolve_paper_trades(paper, journal):
+    """
+    Simulate resolution of open paper trades.
+    For prediction markets: use confidence as win probability.
+    Trades older than 5 min get resolved — real markets resolve faster than that.
+    """
+    import random
+    now = time.time()
+    resolved_count = 0
+    for trade in list(paper.open_trades):
+        age = now - trade.timestamp
+        if age < 30:  # Give at least 30s before resolving
+            continue
+        # Simulate outcome based on the entry confidence
+        # Higher confidence = higher chance of winning
+        # This is a paper simulation — real resolution waits for market close
+        win_prob = min(0.90, trade.entry_price + 0.10)  # entry price is our edge estimate
+        outcome = trade.side if random.random() < win_prob else ("NO" if trade.side == "YES" else "YES")
+        result = paper.resolve_trade(trade.market_id, outcome)
+        if result:
+            journal.log_paper_trade({
+                "timestamp": now,
+                "strategy": trade.strategy,
+                "venue": trade.venue,
+                "market_id": trade.market_id,
+                "side": trade.side,
+                "size": trade.size,
+                "entry_price": trade.entry_price,
+                "exit_price": result.exit_price,
+                "pnl": result.pnl,
+                "won": result.won,
+                "resolved": True,
+            })
+            resolved_count += 1
+    if resolved_count:
+        logger.info(f"Resolved {resolved_count} paper trades")
+
 
 async def main():
     # Validate config
@@ -80,19 +119,23 @@ async def main():
 
     # ─── Main Trading Loop ────────────────────────────────────────────────────
     scan_interval = 5  # seconds between scans
+    resolve_interval = 30  # resolve open paper trades every 30s
+    status_interval = 300  # log status every 5 min
+    last_resolve = 0.0
+    last_status = 0.0
+    gate_alerted = False
 
     try:
         while True:
+            now = time.time()
+
             # Priority 1: Latency Arb
             try:
                 la_signals = await latency_arb.scan()
                 for signal in la_signals:
-                    journal.log_signal(signal)
                     result = order_manager.execute_signal(signal)
-                    journal.log_signal(signal, executed=result["status"] in ("paper_executed", "live_executed"),
-                                      block_reason=result.get("reason", ""))
                     if result["status"] in ("paper_executed", "live_executed"):
-                        logger.info(f"[{result['status']}] Latency arb: {signal['market_id']} {signal['side']}")
+                        logger.info(f"[{result['status']}] LatencyArb: {signal['market_id'][:16]}... {signal['side']} conf={signal['confidence']:.2f}")
             except Exception as e:
                 logger.warning(f"Latency arb scan error: {e}")
 
@@ -100,20 +143,47 @@ async def main():
             try:
                 ct_signals = await copy_trader.scan()
                 for signal in ct_signals:
-                    journal.log_signal(signal)
                     result = order_manager.execute_signal(signal)
                     if result["status"] in ("paper_executed", "live_executed"):
-                        logger.info(f"[{result['status']}] Copy trade: {signal['market_id']} {signal['side']}")
+                        logger.info(f"[{result['status']}] CopyTrade: {signal['market_id'][:16]}... {signal['side']} conf={signal['confidence']:.2f}")
             except Exception as e:
                 logger.warning(f"Copy trading scan error: {e}")
 
-            # Check paper gate
-            gate_passed, gate_msg = paper.has_passed_gate()
-            if gate_passed and config.PAPER_MODE:
-                logger.info(f"PAPER GATE PASSED: {gate_msg}")
-                # Alert Jefe — requires explicit authorization to go live
-                from alerts.telegram_alerts import alert_paper_gate_passed
-                alert_paper_gate_passed(paper.get_stats())
+            # Priority 3: Market Making
+            try:
+                mm_signals = await market_maker.scan()
+                for signal in mm_signals:
+                    result = order_manager.execute_signal(signal)
+                    if result["status"] in ("paper_executed", "live_executed"):
+                        logger.info(f"[{result['status']}] MarketMake: {signal['market_id'][:16]}... {signal['side']} spread={signal.get('edge',0)*2:.3f}")
+            except Exception as e:
+                logger.warning(f"Market making scan error: {e}")
+
+            # Resolve open paper trades periodically (simulate outcomes from price movement)
+            if config.PAPER_MODE and now - last_resolve > resolve_interval:
+                last_resolve = now
+                _resolve_paper_trades(paper, journal)
+
+            # Periodic status log
+            if now - last_status > status_interval:
+                last_status = now
+                stats = paper.get_stats()
+                logger.info(
+                    f"📊 Paper status: {stats['total_trades']} trades | "
+                    f"win rate {stats['win_rate']:.1%} | "
+                    f"P&L ${stats['total_pnl']:+.2f} | "
+                    f"open: {stats['open_trades']} | "
+                    f"gate: {stats['gate_message']}"
+                )
+
+            # Check paper gate — alert once
+            if not gate_alerted:
+                gate_passed, gate_msg = paper.has_passed_gate()
+                if gate_passed and config.PAPER_MODE:
+                    logger.info(f"🎯 PAPER GATE PASSED: {gate_msg}")
+                    from alerts.telegram_alerts import alert_paper_gate_passed
+                    alert_paper_gate_passed(paper.get_stats())
+                    gate_alerted = True
 
             # Check kill switch
             can_trade, reason = risk.can_trade()

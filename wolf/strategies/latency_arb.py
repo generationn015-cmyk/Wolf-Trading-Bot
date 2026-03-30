@@ -24,8 +24,12 @@ class LatencyArb:
         signals = []
 
         btc_price = btc_feed.get_current_price()
-        if btc_price == 0 or not btc_feed.is_fresh(max_age_ms=500):
-            return signals  # Feed not ready
+        if btc_price == 0:
+            return signals  # Feed not ready yet
+        # In paper mode allow up to 30s staleness; live mode keeps 500ms
+        max_age = 30000 if config.PAPER_MODE else 500
+        if not btc_feed.is_fresh(max_age_ms=max_age):
+            return signals
 
         markets = get_active_btc_markets()
         for market in markets:
