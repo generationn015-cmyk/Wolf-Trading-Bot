@@ -5,6 +5,7 @@ Tracks: which markets win/lose, which price ranges perform, which wallets nail i
 Adjusts confidence thresholds and wallet weights dynamically.
 """
 import sqlite3
+import os
 import time
 import logging
 import config
@@ -28,6 +29,36 @@ class LearningEngine:
         self.wallet_penalty: dict[str, float] = {}            # reduce weight on bad wallets
         self.bad_price_ranges: list[tuple] = []               # (low, high) → avoid
         self.lesson_log: list[str] = []                       # human-readable lessons
+        self._state_path = os.path.join(os.path.dirname(config.DB_PATH), 'learning_state.json')
+        self._load_state()
+
+    def _load_state(self):
+        """Load persisted learning state from disk — survives restarts."""
+        try:
+            if os.path.exists(self._state_path):
+                import json
+                state = json.loads(open(self._state_path).read())
+                self.min_confidence_overrides = state.get('floors', {})
+                self.wallet_penalty           = state.get('wallet_penalty', {})
+                self.bad_price_ranges         = [tuple(r) for r in state.get('bad_ranges', [])]
+                logger.info(f"📚 Learning state loaded: {len(self.min_confidence_overrides)} floors, "
+                            f"{len(self.bad_price_ranges)} bad ranges")
+        except Exception as e:
+            logger.warning(f"Learning state load failed: {e}")
+
+    def _save_state(self):
+        """Persist learning state to disk so floors survive restarts."""
+        try:
+            import json
+            state = {
+                'floors':         self.min_confidence_overrides,
+                'wallet_penalty': self.wallet_penalty,
+                'bad_ranges':     [list(r) for r in self.bad_price_ranges],
+                'saved_at':       time.time(),
+            }
+            open(self._state_path, 'w').write(json.dumps(state, indent=2))
+        except Exception as e:
+            logger.warning(f"Learning state save failed: {e}")
 
     def should_run(self) -> bool:
         return time.time() - self.last_analysis > self.analysis_interval
@@ -147,6 +178,7 @@ class LearningEngine:
         except Exception as e:
             logger.warning(f"Learning analysis error: {e}")
 
+        self._save_state()
         return lessons
 
     def get_confidence_floor(self, strategy: str) -> float:
