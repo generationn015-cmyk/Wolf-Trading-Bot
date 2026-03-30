@@ -52,6 +52,26 @@ class CopyTrader:
             profile.win_rate = float(entry.get("percentPositive", 0))
             profile.trade_count = int(entry.get("tradesCount", 0))
 
+            # Enrich trade_count + win_rate from activity if leaderboard didn't supply them
+            if profile.trade_count == 0:
+                try:
+                    activity = get_wallet_activity(addr, limit=50)
+                    trades = [a for a in activity if a.get("type") == "TRADE"]
+                    profile.trade_count = len(trades)
+                    if trades:
+                        sizes = [float(t.get("usdcSize", 0)) for t in trades if t.get("usdcSize")]
+                        avg_size = sum(sizes) / len(sizes) if sizes else 0
+                        max_size = max(sizes) if sizes else 0
+                        entry["avgPositionSize"] = avg_size
+                        entry["maxPositionSize"] = max_size
+                        entry["activeDays"] = min(30, len(set(
+                            str(t.get("timestamp", 0))[:8] for t in trades
+                        )))
+                        # Estimate markets traded
+                        entry["marketsTraded"] = len(set(t.get("conditionId", "") for t in trades))
+                except Exception as e:
+                    logger.debug(f"Activity enrichment failed for {addr[:10]}: {e}")
+
             # Build intelligence metrics and classify
             metrics = WalletMetrics(
                 address=addr,
