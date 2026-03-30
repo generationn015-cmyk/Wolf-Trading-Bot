@@ -28,6 +28,7 @@ KALSHI_PRIVATE_KEY_PATH     = os.getenv("KALSHI_PRIVATE_KEY_PATH", "")
 KALSHI_API_KEY              = os.getenv("KALSHI_API_KEY", "")      # email login
 KALSHI_API_SECRET           = os.getenv("KALSHI_API_SECRET", "")   # password
 KALSHI_DEMO                 = os.getenv("KALSHI_DEMO", "true")     # use demo until credentialed
+KALSHI_ENABLED              = os.getenv("KALSHI_ENABLED", "false").lower() == "true"  # OFF until Jefe authorizes
 KALSHI_BASE_URL             = "https://trading.kalshi.com/trade-api/v2"
 KALSHI_DEMO_URL             = "https://demo-api.kalshi.co/trade-api/v2"
 

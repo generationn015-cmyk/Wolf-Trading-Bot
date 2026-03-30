@@ -166,7 +166,10 @@ class NearExpiryStrategy:
                 ))
 
         # ── Kalshi ────────────────────────────────────────────────────────────
+        import config as _cfg
         try:
+            if not _cfg.KALSHI_ENABLED:
+                raise StopIteration
             kalshi_mkts = kalshi_markets(limit=50)
             for m in kalshi_mkts:
                 ticker = m.get("_ticker", "")

@@ -250,6 +250,7 @@ async def main():
                 logger.warning(f"Timezone arb error: {e}")
 
             # Priority 5: Near-Expiry (high-confidence, near-certain outcomes)
+            # NOTE: near_expiry scans Polymarket only until KALSHI_ENABLED=true
             try:
                 for sig in await near_expiry.scan():
                     res = order_manager.execute_signal(sig)
@@ -263,32 +264,34 @@ async def main():
             except Exception as e:
                 logger.warning(f"Near expiry error: {e}")
 
-            # Priority 6: Cross-Platform Arb (Polymarket ↔ Kalshi)
-            try:
-                for sig in await cross_platform.scan():
-                    res = order_manager.execute_signal(sig)
-                    if res["status"] in ("paper_executed", "live_executed"):
-                        logger.info(
-                            f"[{res['status']}] CrossArb: "
-                            f"[{sig.get('venue','?')}] "
-                            f"{sig['market_id'][:20]}... {sig['side']} "
-                            f"edge={sig.get('edge',0):.3f}"
-                        )
-            except Exception as e:
-                logger.warning(f"Cross platform arb error: {e}")
+            # Priority 6: Cross-Platform Arb — DISABLED until KALSHI_ENABLED=true
+            if config.KALSHI_ENABLED:
+                try:
+                    for sig in await cross_platform.scan():
+                        res = order_manager.execute_signal(sig)
+                        if res["status"] in ("paper_executed", "live_executed"):
+                            logger.info(
+                                f"[{res['status']}] CrossArb: "
+                                f"[{sig.get('venue','?')}] "
+                                f"{sig['market_id'][:20]}... {sig['side']} "
+                                f"edge={sig.get('edge',0):.3f}"
+                            )
+                except Exception as e:
+                    logger.warning(f"Cross platform arb error: {e}")
 
-            # Priority 7: Kalshi Copy Trading
-            try:
-                for sig in await kalshi_copy.scan():
-                    res = order_manager.execute_signal(sig)
-                    if res["status"] in ("paper_executed", "live_executed"):
-                        logger.info(
-                            f"[{res['status']}] KalshiCopy: "
-                            f"{sig['market_id'][:20]}... {sig['side']} "
-                            f"conf={sig['confidence']:.2f}"
-                        )
-            except Exception as e:
-                logger.warning(f"Kalshi copy error: {e}")
+            # Priority 7: Kalshi Copy Trading — DISABLED until KALSHI_ENABLED=true
+            if config.KALSHI_ENABLED:
+                try:
+                    for sig in await kalshi_copy.scan():
+                        res = order_manager.execute_signal(sig)
+                        if res["status"] in ("paper_executed", "live_executed"):
+                            logger.info(
+                                f"[{res['status']}] KalshiCopy: "
+                                f"{sig['market_id'][:20]}... {sig['side']} "
+                                f"conf={sig['confidence']:.2f}"
+                            )
+                except Exception as e:
+                    logger.warning(f"Kalshi copy error: {e}")
 
             # Priority 8: Market Making
             try:
