@@ -39,42 +39,37 @@ def handle_shutdown(sig, frame):
 # ─── Paper trade resolver ─────────────────────────────────────────────────────
 def _resolve_paper_trades(paper, journal, market_maker=None):
     """
-    Resolve open paper trades using strategy-calibrated win probabilities.
-    Runs every 30s. Does NOT stop trading — just settles pending positions.
+    Resolve open paper trades using REAL Polymarket market outcomes.
+    Polls gamma-api for actual resolution status — no random simulation.
+    Trades stay open until the real market resolves (hours/days for prediction markets).
+    Short-duration markets (Ethereum up/down, sports) resolve within minutes.
     """
-    import random
+    from market_resolver import get_real_outcome
     now = time.time()
     resolved_count = 0
 
     for trade in list(paper.open_trades):
-        if now - trade.timestamp < 30:
+        # Don't check resolution for the first 60s — market needs time to settle
+        if now - trade.timestamp < 60:
             continue
 
-        strategy = trade.strategy
-        if strategy == "market_making":
-            # MM trades are PAIRED — YES and NO on same market.
-            # One side always wins, one always loses — net = spread captured.
-            # To simulate correctly: alternate YES wins / NO wins per market.
-            # We use entry_price to determine: if price < 0.5 → this is the cheap
-            # side (we posted on the expected-loser side) → 50% chance.
-            # But over many paired trades the NET is always positive (spread).
-            # Sim: 50/50 per leg is correct — PnL nets positive via spread.
-            win_prob = 0.50
-        elif strategy == "copy_trading":
-            # Top leaderboard traders historically win 70-88%
-            win_prob = min(0.88, max(0.70, trade.entry_price + 0.18))
-        elif strategy == "latency_arb":
-            # Strong signal when it fires — 75-92% confidence justified
-            win_prob = min(0.92, max(0.75, trade.entry_price + 0.22))
-        else:
-            win_prob = 0.65
+        # Query real outcome from Polymarket
+        outcome = get_real_outcome(trade.market_id)
 
-        outcome = trade.side if random.random() < win_prob else (
-            "NO" if trade.side == "YES" else "YES"
-        )
+        if outcome is None:
+            # Market not resolved yet — this is normal for prediction markets
+            # Log a warning only if position has been open >24h (stale guard)
+            age_h = (now - trade.timestamp) / 3600
+            if age_h > 24:
+                logger.warning(
+                    f"[RESOLVER] Position open {age_h:.1f}h, no outcome yet: "
+                    f"{trade.strategy} {trade.side} {trade.market_id[:20]}…"
+                )
+            continue
+
+        # Real outcome received — resolve the trade
         result = paper.resolve_trade(trade.market_id, outcome)
         if result:
-            # Notify MM so its slot opens up for re-entry
             if trade.strategy == "market_making" and market_maker is not None:
                 market_maker.on_trade_resolved(trade.market_id)
             try:
@@ -89,9 +84,14 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
             except Exception as db_err:
                 logger.debug(f"Resolve DB update skipped ({db_err})")
             resolved_count += 1
+            logger.info(
+                f"[REAL] {'WIN ✅' if result.won else 'LOSS ❌'} | "
+                f"{trade.strategy} {trade.side}@{trade.entry_price:.3f} → "
+                f"{outcome} | P&L ${result.pnl:+.2f}"
+            )
 
     if resolved_count:
-        logger.info(f"Resolved {resolved_count} paper trades")
+        logger.info(f"Resolved {resolved_count} paper trades (real outcomes)")
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────

@@ -1,26 +1,26 @@
 {
   "period_hours": 24,
-  "generated_at": 1774869609.4043202,
+  "generated_at": 1774871280.0272622,
   "overall": {
-    "total_trades": 236,
-    "wins": 154,
-    "losses": 82,
-    "win_rate": 0.652542372881356,
-    "total_pnl": 8999.25,
-    "avg_pnl_per_trade": 38.13,
+    "total_trades": 255,
+    "wins": 167,
+    "losses": 88,
+    "win_rate": 0.6549019607843137,
+    "total_pnl": 9816.54,
+    "avg_pnl_per_trade": 38.5,
     "best_trade": 77.6,
     "worst_trade": -33.6,
     "avg_confidence": 0.779
   },
   "by_strategy": {
     "copy_trading": {
-      "total": 15,
+      "total": 16,
       "wins": 14,
-      "win_rate": 0.933,
-      "pnl": 415.81,
-      "avg_pnl": 27.72,
+      "win_rate": 0.875,
+      "pnl": 399.82,
+      "avg_pnl": 24.99,
       "avg_confidence": 0.718,
-      "avg_price": 0.557,
+      "avg_price": 0.535,
       "best": 60.0,
       "worst": -33.6
     },
@@ -47,11 +47,11 @@
       "worst": -18.8
     },
     "value_bet": {
-      "total": 211,
-      "wins": 136,
-      "win_rate": 0.645,
-      "pnl": 8506.64,
-      "avg_pnl": 40.32,
+      "total": 229,
+      "wins": 149,
+      "win_rate": 0.651,
+      "pnl": 9339.92,
+      "avg_pnl": 40.79,
       "avg_confidence": 0.785,
       "avg_price": 0.141,
       "best": 77.6,
@@ -61,23 +61,23 @@
   "price_buckets": [
     {
       "range": "0.0\u20130.1",
-      "total": 97,
-      "win_rate": 0.722,
-      "pnl": 5156.92,
+      "total": 104,
+      "win_rate": 0.712,
+      "pnl": 5435.84,
       "flag": ""
     },
     {
       "range": "0.1\u20130.2",
-      "total": 56,
+      "total": 63,
       "win_rate": 0.571,
-      "pnl": 1925.16,
+      "pnl": 2154.05,
       "flag": ""
     },
     {
       "range": "0.2\u20130.3",
-      "total": 37,
-      "win_rate": 0.568,
-      "pnl": 992.96,
+      "total": 42,
+      "win_rate": 0.619,
+      "pnl": 1302.44,
       "flag": ""
     },
     {
@@ -155,9 +155,9 @@
     },
     {
       "hour_et": 7,
-      "total": 10,
-      "win_rate": 0.8,
-      "pnl": 508.32
+      "total": 29,
+      "win_rate": 0.724,
+      "pnl": 1325.61
     },
     {
       "hour_et": 23,
@@ -323,8 +323,8 @@
     }
   ],
   "lessons": [
-    "\ud83d\udd34 Overall WR 65.3% \u2014 below target. Tighten filters.",
-    "\ud83d\ude80 copy_trading: 93.3% WR \u2014 can slightly relax size limits to compound",
+    "\ud83d\udd34 Overall WR 65.5% \u2014 below target. Tighten filters.",
+    "\ud83d\ude80 copy_trading: 87.5% WR \u2014 can slightly relax size limits to compound",
     "\u26d4 market_making: 33.3% WR on 6 trades \u2014 raise confidence floor or pause strategy",
     "\ud83d\udeab Price range 0.4\u20130.5: 33.3% WR \u2014 block this range",
     "\ud83d\udca1 Price range 0.5\u20130.6: 87.5% WR \u2014 high edge zone, prioritize",
