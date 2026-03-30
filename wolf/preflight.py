@@ -142,13 +142,8 @@ def run(send_telegram: bool = True, raise_on_fail: bool = False) -> tuple[bool, 
     if send_telegram:
         try:
             from alerts.telegram_alerts import _send
-            if all_clear:
-                lines = [f"✅ <b>Wolf Pre-Flight CLEAR</b>",
-                         f"Mode: {'📄 PAPER' if config.PAPER_MODE else '🔴 LIVE'}",
-                         f"Checks: {7 + (1 if not config.PAPER_MODE else 0) + 2} passed",
-                         "Wolf is ready to trade."]
-                _send("\n".join(lines))
-            else:
+            # Only alert on FAILURE — clean startup is silent (no spam)
+            if not all_clear:
                 lines = ["🚨 <b>Wolf Pre-Flight FAILED</b>",
                          f"Mode: {'📄 PAPER' if config.PAPER_MODE else '🔴 LIVE'}",
                          f"{len(failures)} failure(s):"]

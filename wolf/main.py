@@ -59,7 +59,42 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
         if outcome is None:
             # Market not resolved yet — normal for prediction markets
             age_h = (now - trade.timestamp) / 3600
-            if age_h > 24:
+            max_hold_h = config.MAX_HOLD_HOURS
+            if age_h > max_hold_h:
+                # Force-exit stale position — don't let capital sit frozen
+                from market_resolver import get_current_price
+                prices = get_current_price(trade.market_id)
+                current_px = prices[0] if trade.side == "YES" else prices[1]
+                if current_px and current_px > 0:
+                    # Exit at current market price (partial value recovery)
+                    pnl = trade.size * (current_px / trade.entry_price - 1.0)
+                    won = pnl > 0
+                else:
+                    current_px = trade.entry_price
+                    pnl = 0.0
+                    won = False
+                logger.warning(
+                    f"[FORCE-EXIT] Position held {age_h:.1f}h > {max_hold_h}h limit — "
+                    f"exiting at ${current_px:.3f} | P&L ${pnl:+.2f}"
+                )
+                result = paper.resolve_trade(trade.market_id, trade.side if won else ("NO" if trade.side == "YES" else "YES"))
+                if result:
+                    try:
+                        journal.update_paper_trade_resolved(
+                            market_id=trade.market_id, strategy=trade.strategy,
+                            side=trade.side, won=won,
+                            exit_price=current_px, pnl=pnl,
+                        )
+                    except Exception as _e:
+                        logger.debug(f"Force-exit DB update: {_e}")
+                    from alerts.telegram_alerts import alert_trade_exit
+                    alert_trade_exit(
+                        strategy=trade.strategy, market=trade.market_id,
+                        side=trade.side, entry_price=trade.entry_price,
+                        exit_price=current_px, pnl=pnl, won=won,
+                        hold_time_min=age_h * 60, paper=config.PAPER_MODE,
+                    )
+            elif age_h > 24:
                 logger.warning(
                     f"[RESOLVER] Position open {age_h:.1f}h, no outcome yet: "
                     f"{trade.strategy} {trade.side} {trade.market_id[:20]}…"

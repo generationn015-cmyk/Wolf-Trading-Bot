@@ -53,6 +53,7 @@ DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -
 KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch ($40 loss → full stop)
 MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "5"))
 VALUE_BET_MAX_DAYS          = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))  # Skip markets resolving >14 days out
+MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "48"))     # Force-exit any position not resolved after 48h
 MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))
 MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
 
