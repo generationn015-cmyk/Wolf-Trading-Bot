@@ -46,7 +46,7 @@ MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.65"))     # F
 VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.15"))
 COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "300"))  # 5 min max age
 COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "30"))   # $30 min whale size
-COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "50"))    # Demo validation trades
+COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "10"))    # Demo validation trades (lowered — leaderboard wallets have proven track record)
 WHALE_ALERT_THRESHOLD       = float(os.getenv("WHALE_ALERT_THRESHOLD", "500")) # $500 whale alert
 
 # ─── PAPER MODE GATE ─────────────────────────────────────────────────────────

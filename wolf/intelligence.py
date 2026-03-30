@@ -73,24 +73,31 @@ class IntelligenceEngine:
             notes.append("Whale wallet")
 
         # Suspicious classification
+        # Note: leaderboard top traders naturally have high PnL + large sizes — don't flag them
+        # purely for being profitable. Require multiple signals before marking suspicious.
         suspicious = False
         anomaly_score = 0.0
-        if metrics.trade_count < 20 and metrics.pnl > 10000:
+        if metrics.trade_count < 5 and metrics.pnl > 50000:
+            # Truly anomalous: huge PnL from almost no trades = luck or manipulation
             suspicious = True
             anomaly_score += 0.4
             notes.append("High PnL on very low trade count")
-        if metrics.max_size > max(metrics.avg_size * 15, 3000):
-            suspicious = True
+        if metrics.avg_size > 0 and metrics.max_size > max(metrics.avg_size * 20, 10000):
+            # Wildly outsized single trade relative to normal behavior
             anomaly_score += 0.3
             notes.append("Unusual single-trade size spike")
-        if metrics.markets <= 2 and metrics.pnl > 5000:
-            anomaly_score += 0.2
+        if metrics.markets == 1 and metrics.pnl > 20000:
+            # All profits from one single market — very concentrated
+            anomaly_score += 0.3
             notes.append("Concentrated profits in very few markets")
         if metrics.recent_market_volumes and len(metrics.recent_market_volumes) >= 3:
             illiquid_count = len([v for v in metrics.recent_market_volumes if v < 10000])
             if illiquid_count >= 2:
                 anomaly_score += 0.2
                 notes.append("Trading in low-liquidity markets")
+        # Only mark suspicious if anomaly score is truly high
+        if anomaly_score >= 0.6:
+            suspicious = True
 
         return WalletScore(
             address=metrics.address,
