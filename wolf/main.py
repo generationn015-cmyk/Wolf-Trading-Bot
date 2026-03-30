@@ -182,8 +182,8 @@ async def main():
     from analytics.log_analyzer import analyzer as log_analyzer
 
     journal = TradeLogger()
-    risk    = RiskEngine(starting_balance=1000.0)
-    paper   = PaperTrader(starting_balance=1000.0)
+    risk    = RiskEngine(starting_balance=config.PAPER_STARTING_CAPITAL if config.PAPER_MODE else config.LIVE_STARTING_CAPITAL)
+    paper   = PaperTrader(starting_balance=config.PAPER_STARTING_CAPITAL if config.PAPER_MODE else config.LIVE_STARTING_CAPITAL)
 
     # ── Restore open positions from DB into risk engine (prevents over-entry after restart) ──
     import sqlite3 as _sqlite3

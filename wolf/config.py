@@ -42,11 +42,12 @@ BINANCE_WS_ETH              = "wss://stream.binance.com:9443/ws/ethusdt@trade"
 
 # ─── CAPITAL CONFIGURATION ───────────────────────────────────────────────────
 LIVE_STARTING_CAPITAL       = float(os.getenv("LIVE_STARTING_CAPITAL", "100.0"))   # Phase 1 live: $100
-PAPER_STARTING_CAPITAL      = float(os.getenv("PAPER_STARTING_CAPITAL", "1000.0")) # Paper continues at $1K
+PAPER_STARTING_CAPITAL      = float(os.getenv("PAPER_STARTING_CAPITAL", "10000.0")) # Paper simulation at $10K for representative sizing
 
 # ─── RISK ENGINE PARAMETERS ──────────────────────────────────────────────────
 # Live: 8% per trade on $100 = $8 max/trade. Conservative for Phase 1.
 MAX_POSITION_PCT            = float(os.getenv("MAX_POSITION_PCT", "0.08"))   # 8% max per trade ($8 on $100 live)
+MAX_POSITION_PAPER          = float(os.getenv("MAX_POSITION_PAPER", "200.0"))  # Paper: hard cap $200/trade — realistic small-account sim
 MAX_POSITION_LIVE           = float(os.getenv("MAX_POSITION_LIVE", "8.0"))   # Hard cap $8 per live trade
 MIN_POSITION_LIVE           = float(os.getenv("MIN_POSITION_LIVE", "1.0"))   # Min $1 (Polymarket minimum)
 DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt ($20 on live)

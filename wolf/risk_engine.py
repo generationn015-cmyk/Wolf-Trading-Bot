@@ -104,7 +104,9 @@ class RiskEngine:
         size = self.current_balance * fraction
 
         # Hard caps — always enforced regardless of Kelly output
-        if not config.PAPER_MODE:
+        if config.PAPER_MODE:
+            size = min(size, config.MAX_POSITION_PAPER)  # Paper: cap at $200 for realistic small-account sim
+        else:
             if size < config.MIN_POSITION_LIVE:
                 return 0.0  # Below minimum — skip trade entirely
             size = min(size, config.MAX_POSITION_LIVE)
