@@ -85,6 +85,32 @@ def get_orderbook(market_id: str) -> dict:
         logger.warning(f"get_orderbook error {market_id}: {e}")
         return {}
 
+
+
+def get_clob_spread(clob_token_id: str) -> tuple[float, float]:
+    """
+    Returns (best_bid, best_ask) for a token from public CLOB REST.
+    No credentials needed — public endpoint.
+    Returns (0.0, 0.0) on error.
+    """
+    try:
+        resp = requests.get(
+            "https://clob.polymarket.com/book",
+            params={"token_id": clob_token_id},
+            timeout=6,
+        )
+        if not resp.ok:
+            return 0.0, 0.0
+        data = resp.json()
+        bids = data.get("bids", [])
+        asks = data.get("asks", [])
+        best_bid = float(bids[0]["price"]) if bids else 0.0
+        best_ask = float(asks[0]["price"]) if asks else 0.0
+        return best_bid, best_ask
+    except Exception as e:
+        logger.debug(f"get_clob_spread error {clob_token_id[:16]}: {e}")
+        return 0.0, 0.0
+
 POLYMARKET_DATA_URL = "https://data-api.polymarket.com"
 
 def get_top_wallets(limit: int = 20) -> list[dict]:

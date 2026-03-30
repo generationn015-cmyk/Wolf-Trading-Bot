@@ -1,16 +1,16 @@
 {
   "period_hours": 24,
-  "generated_at": 1774849640.9122767,
+  "generated_at": 1774849937.916769,
   "overall": {
-    "total_trades": 2,
-    "wins": 2,
-    "losses": 0,
-    "win_rate": 1.0,
-    "total_pnl": 79.2,
-    "avg_pnl_per_trade": 39.6,
-    "best_trade": 40.0,
-    "worst_trade": 39.2,
-    "avg_confidence": 0.735
+    "total_trades": 11,
+    "wins": 8,
+    "losses": 3,
+    "win_rate": 0.7272727272727273,
+    "total_pnl": 487.44,
+    "avg_pnl_per_trade": 44.31,
+    "best_trade": 77.56,
+    "worst_trade": -9.88,
+    "avg_confidence": 0.782
   },
   "by_strategy": {
     "copy_trading": {
@@ -23,9 +23,41 @@
       "avg_price": 0.505,
       "best": 40.0,
       "worst": 39.2
+    },
+    "value_bet": {
+      "total": 9,
+      "wins": 6,
+      "win_rate": 0.667,
+      "pnl": 408.24,
+      "avg_pnl": 45.36,
+      "avg_confidence": 0.792,
+      "avg_price": 0.1,
+      "best": 77.56,
+      "worst": -9.88
     }
   },
   "price_buckets": [
+    {
+      "range": "0.0\u20130.1",
+      "total": 6,
+      "win_rate": 0.667,
+      "pnl": 293.92,
+      "flag": ""
+    },
+    {
+      "range": "0.1\u20130.2",
+      "total": 2,
+      "win_rate": 0.5,
+      "pnl": 58.72,
+      "flag": ""
+    },
+    {
+      "range": "0.3\u20130.4",
+      "total": 1,
+      "win_rate": 1.0,
+      "pnl": 55.6,
+      "flag": ""
+    },
     {
       "range": "0.5\u20130.6",
       "total": 2,
@@ -37,9 +69,9 @@
   "hourly_performance": [
     {
       "hour_et": 1,
-      "total": 1,
-      "win_rate": 1.0,
-      "pnl": 40.0
+      "total": 10,
+      "win_rate": 0.7,
+      "pnl": 448.24
     },
     {
       "hour_et": 23,
@@ -48,9 +80,32 @@
       "pnl": 39.2
     }
   ],
-  "worst_losses": [],
+  "worst_losses": [
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.1235,
+      "side": "YES",
+      "pnl": -9.88,
+      "reason": "ValueBet: Underdog YES@0.123 vol=$49,498 | Will Harvey Weinstein be sentenced to"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.05,
+      "side": "YES",
+      "pnl": -4.0,
+      "reason": "ValueBet: Underdog YES@0.050 vol=$1,222,668 | Will the Vegas Golden Knights win "
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.0415,
+      "side": "YES",
+      "pnl": -3.32,
+      "reason": "ValueBet: Underdog YES@0.042 vol=$8,361,328 | Will the Minnesota Wild win the 20"
+    }
+  ],
   "wallet_performance": [],
   "lessons": [
-    "\ud83d\udfe2 Overall WR 100.0% \u2014 above target. Hold current filters."
+    "\ud83d\udfe1 Overall WR 72.7% \u2014 on track. Monitor closely.",
+    "\u23f0 Best hour: 01:00 ET (70.0% WR, $+448)"
   ]
 }

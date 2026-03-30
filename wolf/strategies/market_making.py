@@ -15,7 +15,19 @@ import logging
 import asyncio
 import requests
 from dataclasses import dataclass, field
+import json as _mm_json
 import config
+
+def _get_clob_spread_value(clob_token_id: str) -> float:
+    """Returns the CLOB spread for a token. No auth needed."""
+    try:
+        import requests as _rq
+        r = _rq.get("https://clob.polymarket.com/spread",
+            params={"token_id": clob_token_id}, timeout=5)
+        return float(r.json().get("spread", 0)) if r.ok else 0.0
+    except Exception:
+        return 0.0
+
 from learning_engine import learning
 
 logger = logging.getLogger("wolf.strategy.market_making")
@@ -78,6 +90,15 @@ class MarketMaker:
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1
                 m["_volume"]    = vol
+                # Pre-fetch CLOB spread for accurate market making
+                clob_ids = m.get("clobTokenIds", "")
+                if isinstance(clob_ids, str) and clob_ids.startswith("["):
+                    try:
+                        ids = _mm_json.loads(clob_ids)
+                        if ids:
+                            m["_clob_spread"] = _get_clob_spread_value(ids[0])
+                    except Exception:
+                        m["_clob_spread"] = 0.0
                 filtered.append(m)
 
             self._market_cache = filtered[:20]
@@ -132,7 +153,9 @@ class MarketMaker:
 
             # Spread we'd capture posting both sides tight
             # Natural spread on Polymarket is typically 2–8 cents
-            natural_spread = abs(yes_price - (1.0 - no_price))
+            # Use real CLOB spread if available; fallback to mid-price spread
+            clob_spread = market.get("_clob_spread", 0.0)
+            natural_spread = clob_spread if clob_spread > 0 else abs(yes_price - (1.0 - no_price))
             if natural_spread < 0.03:  # Require 3% spread minimum (raised from 2%)
                 continue  # Too tight — no edge
 
