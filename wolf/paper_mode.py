@@ -30,7 +30,7 @@ class PaperTrade:
 
 
 class PaperTrader:
-    def __init__(self, starting_balance: float = 1000.0):
+    def __init__(self, starting_balance: float = 10000.0):  # default to $10K; always overridden by main.py
         self.balance = starting_balance
         self.starting_balance = starting_balance
         self.trades: list[PaperTrade] = []

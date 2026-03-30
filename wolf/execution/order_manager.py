@@ -65,9 +65,22 @@ class OrderManager:
         ) if self.paper else 0
         # Per-strategy cap: half of total open positions max
         # Prevents any one strategy monopolizing all slots, but scales with MAX_OPEN_POSITIONS
-        max_per = max(3, config.MAX_OPEN_POSITIONS * 3 // 4)  # 75% of total slots per strategy
+        # Use paper-mode cap when in paper mode — live cap is much smaller and would silently block strategies
+        _total_slots = config.MAX_OPEN_POSITIONS_PAPER if config.PAPER_MODE else config.MAX_OPEN_POSITIONS
+        max_per = max(4, _total_slots * 3 // 8)  # 37.5% per strategy — prevents monopoly without starving others
         if strat_open >= max_per:
             return {"status": "blocked", "reason": f"Strategy slot cap: {strategy} already has {strat_open}/{max_per} open"}
+
+        # ── Duration-based slot reservation ─────────────────────────────────────
+        # Short plays (≤3d) always allowed (up to total cap)
+        # Long plays (7-14d) hard-capped at 4 total open — keeps slots for shorter ops
+        days_to_expiry = signal.get('days_to_expiry', 0)
+        if days_to_expiry > 7:
+            long_open = sum(1 for t in self.paper.open_trades
+                           if getattr(t, 'days_to_expiry', 0) > 7) if self.paper else 0
+            max_long = 4  # never let long plays consume more than 4 slots
+            if long_open >= max_long:
+                return {'status': 'blocked', 'reason': f'Long-play cap: {long_open}/{max_long} slots used for >7d trades'}
 
         # ── Risk gate ─────────────────────────────────────────────────────────
         volume = signal.get("volume", config.MIN_MARKET_VOLUME + 1)

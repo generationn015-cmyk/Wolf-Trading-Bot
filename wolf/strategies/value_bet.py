@@ -43,7 +43,7 @@ logger = logging.getLogger("wolf.strategy.value_bet")
 # Target: buy the underpriced side — entry price must be low enough for Kelly
 MAX_ENTRY_PRICE   = 0.30   # Only buy at ≤ 0.30 → Kelly works
 MIN_ENTRY_PRICE   = 0.03   # Too cheap = no liquidity
-MIN_VOLUME        = 3_000  # $3K minimum for fills
+MIN_VOLUME        = 50_000  # Match risk gate — $50K min (same as config.MIN_MARKET_VOLUME)
 POLY_FEE          = 0.01   # 1% taker fee
 MIN_EDGE          = 0.04   # 4 cents net edge required
 COOLDOWN          = 300    # 5 min per market — allow re-entry as prices move
@@ -106,7 +106,9 @@ class ValueBetStrategy:
                 # Paper mode: prefer short-duration markets to get real resolutions quickly
                 # Skip very long-term markets during paper test (no data feedback for months)
                 import config as _cfg
-                max_days = 7 if _cfg.PAPER_MODE else 365
+                # 14-day paper window: enough markets, short enough for real resolutions
+                # Hard rule: never take >14-day positions in paper mode (keeps capital cycling)
+                max_days = 14 if _cfg.PAPER_MODE else 365
                 if days_out > max_days and days_out != 999:
                     continue
 
@@ -211,6 +213,7 @@ class ValueBetStrategy:
                     "confidence":  confidence,
                     "edge":        round((1.0 - entry) * confidence - entry * (1 - confidence) - POLY_FEE, 3),
                     "volume":      vol,
+                    "days_to_expiry": market.get("_days_to_expiry", 0),
                     "timestamp":   now,
                     "days_to_expiry": market.get("_days_to_expiry", 999),
                     "reason":      f"ValueBet: {reason} | {q[:40]}",

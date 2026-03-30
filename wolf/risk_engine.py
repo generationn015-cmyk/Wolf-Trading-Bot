@@ -23,7 +23,7 @@ class TradeRecord:
     status: str = "open"  # open | closed | cancelled
 
 class RiskEngine:
-    def __init__(self, starting_balance: float = 1000.0):
+    def __init__(self, starting_balance: float = 10000.0):  # default to $10K; always overridden by main.py
         self.starting_balance = starting_balance
         self.current_balance = starting_balance
         self.daily_start_balance = starting_balance
