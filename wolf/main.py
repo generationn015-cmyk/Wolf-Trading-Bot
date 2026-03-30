@@ -111,6 +111,7 @@ async def main():
     from strategies.complement_arb import ComplementArb
     from strategies.kalshi_copy import KalshiCopyTrader
     from strategies.near_expiry import NearExpiryStrategy
+    from strategies.ta_signal import TASignalStrategy
     from strategies.cross_platform_arb import CrossPlatformArb
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
@@ -130,6 +131,7 @@ async def main():
     complement_arb    = ComplementArb()
     kalshi_copy       = KalshiCopyTrader()
     near_expiry       = NearExpiryStrategy()
+    ta_signal         = TASignalStrategy()
     cross_platform    = CrossPlatformArb()
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
@@ -248,6 +250,19 @@ async def main():
                         )
             except Exception as e:
                 logger.warning(f"Timezone arb error: {e}")
+
+            # Priority 4b: TA Signal (RSI+MACD+Stoch+EMA+OBV+VWAP+ATR)
+            try:
+                for sig in await ta_signal.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] TASignal: "
+                            f"{sig['market_id'][:20]}... {sig['side']} "
+                            f"conf={sig['confidence']:.2f} {sig.get('reason','')[:60]}"
+                        )
+            except Exception as e:
+                logger.warning(f"TA signal error: {e}")
 
             # Priority 5: Near-Expiry (high-confidence, near-certain outcomes)
             # NOTE: near_expiry scans Polymarket only until KALSHI_ENABLED=true
