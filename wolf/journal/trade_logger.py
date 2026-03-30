@@ -211,7 +211,7 @@ class TradeLogger:
                        SUM(pnl) as pnl,
                        AVG(confidence) as avg_conf,
                        AVG(entry_price) as avg_price
-                FROM paper_trades WHERE resolved=1
+                FROM paper_trades WHERE resolved=1 AND simulated=0
                 GROUP BY strategy
             """).fetchall()
             by_strategy = {}
@@ -243,7 +243,7 @@ class TradeLogger:
         """Return recent resolved paper trades for analysis."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            q = "SELECT * FROM paper_trades WHERE resolved=1"
+            q = "SELECT * FROM paper_trades WHERE resolved=1 AND simulated=0"
             params = []
             if strategy:
                 q += " AND strategy=?"
