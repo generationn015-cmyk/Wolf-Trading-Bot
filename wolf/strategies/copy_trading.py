@@ -220,7 +220,7 @@ class CopyTrader:
                 confidence = max(base_confidence, learned_floor)
 
                 # Only fire on highest-conviction setups
-                if confidence >= max(learned_floor, 0.75):  # Floor: 0.75 — unproven system needs high bar
+                if confidence >= max(learned_floor, 0.72):  # Floor: 0.72 — quality + volume balance
                     signals.append({
                         "strategy": "copy_trading",
                         "venue": "polymarket",

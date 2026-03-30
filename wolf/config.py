@@ -44,13 +44,13 @@ BINANCE_WS_ETH              = "wss://stream.binance.com:9443/ws/ethusdt@trade"
 MAX_POSITION_PCT            = float(os.getenv("MAX_POSITION_PCT", "0.08"))   # 8% max per trade
 DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt
 KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch
-MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "5"))
-MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "2"))  # No strategy monopolizes slots
+MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))
+MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))  # Allow 3 concurrent per strategy
 MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
 
 # ─── STRATEGY PARAMETERS ─────────────────────────────────────────────────────
 LATENCY_ARB_THRESHOLD       = float(os.getenv("LATENCY_ARB_THRESHOLD", "0.003"))  # 0.3% divergence
-MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.72"))     # Unproven system — high bar required
+MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.68"))     # Balanced: volume + quality
 VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.15"))
 COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "14400"))  # 4h — paper mode needs wider window; tighten to 300 for live
 COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "30"))   # $30 min whale size
