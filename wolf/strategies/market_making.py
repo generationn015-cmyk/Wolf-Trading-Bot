@@ -47,6 +47,7 @@ class MMSlot:
 class MarketMaker:
     def __init__(self):
         self._slots:      dict[str, MMSlot] = {}
+        self._restore_slots_from_db()  # Prevent re-entry on restart
         self._market_cache: list[dict] = []
         self._cache_ts:   float = 0.0
         self._cache_ttl:  float = 180    # refresh market list every 3 min
@@ -115,6 +116,28 @@ class MarketMaker:
         return abs(bid_size - ask_size) / total if total > 0 else 0.0
 
     # ── Main scan ─────────────────────────────────────────────────────────────
+
+    def _restore_slots_from_db(self):
+        """Load open MM positions from DB into slots to prevent re-entry after restart."""
+        try:
+            import sqlite3
+            import sys, os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            import config
+            conn = sqlite3.connect(config.DB_PATH)
+            rows = conn.execute(
+                "SELECT market_id, side FROM paper_trades "
+                "WHERE resolved=0 AND simulated=0 AND strategy='market_making'"
+            ).fetchall()
+            conn.close()
+            for market_id, side in rows:
+                slot = self._slots.setdefault(market_id, MMSlot(market_id=market_id))
+                if side == "YES":
+                    slot.active_yes = True
+                else:
+                    slot.active_no = True
+        except Exception as e:
+            pass  # Non-fatal — worst case we re-enter briefly
 
     async def scan(self) -> list[dict]:
         signals = []
