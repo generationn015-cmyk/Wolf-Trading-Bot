@@ -201,9 +201,9 @@ class CopyTrader:
                 # Volume check: use trade size as proxy since conditionId != clobTokenId
                 volume = get_market_volume(market_id)
                 if volume < config.MIN_MARKET_VOLUME:
-                    if size < 1000:  # Raised from $500 — require stronger whale conviction
+                    if size < config.COPY_TRADE_MIN_SIZE:  # Already filtered above — just proxy volume
                         continue
-                    volume = size * 100
+                    volume = max(size * 100, config.MIN_MARKET_VOLUME)  # Synthetic volume proxy meets risk gate
 
                 # Apply wallet penalty from learning engine
                 wallet_multiplier = learning.get_wallet_weight_multiplier(addr)

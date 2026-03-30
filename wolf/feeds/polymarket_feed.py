@@ -186,21 +186,53 @@ def get_wallet_positions(wallet_address: str, limit: int = 20) -> list[dict]:
     return []
 
 def get_active_btc_markets() -> list[dict]:
-    """Returns active BTC/ETH 15-min prediction markets."""
+    """
+    Returns active crypto-correlated Polymarket markets suitable for latency arb.
+    Targets BTC/ETH price markets plus high-volume markets that move with crypto sentiment.
+    Falls back to top-volume active markets when no specific crypto price markets exist.
+    """
+    from datetime import datetime, timezone
     try:
         resp = requests.get(
             f"{config.POLYMARKET_GAMMA_URL}/markets",
-            params={"tag": "crypto", "active": True, "limit": 50},
+            params={"active": True, "closed": False, "limit": 200, "volumeNum_min": 50000},
             timeout=10
         )
-        if resp.ok:
-            data = resp.json()
-            markets = data if isinstance(data, list) else data.get("data", [])
-            # Filter for short-duration BTC/ETH markets
-            return [m for m in markets if any(
-                kw in m.get("question", "").upper()
-                for kw in ["BTC", "BITCOIN", "ETH", "ETHEREUM"]
-            )]
+        if not resp.ok:
+            return []
+        markets = resp.json() if isinstance(resp.json(), list) else []
+        now = datetime.now(timezone.utc)
+
+        # Priority 1: explicit BTC/ETH price prediction markets
+        crypto_direct = []
+        for m in markets:
+            q = (m.get("question") or m.get("title") or "").upper()
+            if any(kw in q for kw in ["BTC", "BITCOIN", "ETH", "ETHEREUM", "CRYPTO"]):
+                try:
+                    ed = m.get("endDate", "")
+                    end_dt = datetime.fromisoformat(ed.replace("Z", "+00:00"))
+                    if (end_dt - now).days <= 90:  # active within 90 days
+                        crypto_direct.append(m)
+                except Exception:
+                    crypto_direct.append(m)
+
+        if crypto_direct:
+            return crypto_direct[:20]
+
+        # Fallback: top 10 highest-volume short-term markets (crypto moves affect all markets)
+        short_term = []
+        for m in markets:
+            try:
+                ed = m.get("endDate", "")
+                end_dt = datetime.fromisoformat(ed.replace("Z", "+00:00"))
+                days = (end_dt - now).days
+                if 0 <= days <= 30:
+                    short_term.append(m)
+            except Exception:
+                pass
+        short_term.sort(key=lambda x: float(x.get("volumeNum", 0) or 0), reverse=True)
+        return short_term[:10]
+
     except Exception as e:
         logger.warning(f"get_active_btc_markets error: {e}")
     return []
