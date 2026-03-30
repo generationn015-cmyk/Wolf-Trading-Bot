@@ -1,18 +1,8 @@
 {
   "floors": {
-    "copy_trading": 0.68,
-    "value_bet": 0.85
+    "copy_trading": 0.68
   },
   "wallet_penalty": {},
-  "bad_ranges": [
-    [
-      0.11,
-      0.21
-    ],
-    [
-      0.35,
-      0.45
-    ]
-  ],
-  "saved_at": 1774877935.383816
+  "bad_ranges": [],
+  "saved_at": 1774878421.6836138
 }

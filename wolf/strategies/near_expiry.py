@@ -35,8 +35,8 @@ logger = logging.getLogger("wolf.strategy.near_expiry")
 
 NEAR_CERTAIN_MIN  = 0.94   # minimum price to consider "near certain"
 NEAR_CERTAIN_MAX  = 0.995  # above this, too little upside to bother
-EXPIRY_WINDOW_SEC = 7200   # 2 hours
-SHORT_WINDOW_SEC  = 1800   # 30 minutes — highest confidence
+EXPIRY_WINDOW_SEC = 21600  # 6 hours — wider window catches more daily-close markets
+SHORT_WINDOW_SEC  = 7200   # 2 hours — highest confidence tier
 COOLDOWN_SEC      = 600    # 10 min per market
 KALSHI_FEE        = 0.01
 

@@ -46,7 +46,7 @@ MIN_ENTRY_PRICE   = 0.03   # Too cheap = no liquidity
 MIN_VOLUME        = 3_000  # $3K minimum for fills
 POLY_FEE          = 0.01   # 1% taker fee
 MIN_EDGE          = 0.04   # 4 cents net edge required
-COOLDOWN          = 900    # 15 min per market
+COOLDOWN          = 300    # 5 min per market — allow re-entry as prices move
 MIN_CONFIDENCE    = 0.70   # override config — be more selective here
 
 
@@ -146,13 +146,20 @@ class ValueBetStrategy:
             if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
                 return "NO", no, round(confidence, 3), f"Underdog NO@{no:.3f} (YES={yes:.3f}) vol=${vol:,.0f}"
 
-        # Case 3: Mid-range markets 0.30-0.40 — slight lean to YES
-        elif 0.30 <= yes <= 0.40 and vol >= 20_000:
-            # Slightly-favored NO → buy YES at mild underdog price
+        # Case 3: Mid-range YES lean (0.28-0.42) — buy YES as mild underdog
+        elif 0.28 <= yes <= 0.42 and vol >= 10_000:
             confidence = 0.70 + min(0.08, (vol / 1_000_000) * 0.08)
             edge = (1.0 - yes) * confidence - yes * (1 - confidence) - POLY_FEE
-            if edge >= MIN_EDGE + 0.02 and confidence >= MIN_CONFIDENCE:
+            if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
                 return "YES", yes, round(confidence, 3), f"Value YES@{yes:.3f} mid-range vol=${vol:,.0f}"
+
+        # Case 4: Mid-range NO lean (YES 0.58-0.72) — buy NO as mild underdog
+        elif 0.58 <= yes <= 0.72 and vol >= 10_000:
+            no_price = round(1.0 - yes, 3)
+            confidence = 0.70 + min(0.08, (vol / 1_000_000) * 0.08)
+            edge = (1.0 - no_price) * confidence - no_price * (1 - confidence) - POLY_FEE
+            if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
+                return "NO", no_price, round(confidence, 3), f"Value NO@{no_price:.3f} mid-range vol=${vol:,.0f}"
 
         return None, None, None, None
 

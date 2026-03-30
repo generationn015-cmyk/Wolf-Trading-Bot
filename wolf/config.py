@@ -51,9 +51,9 @@ MAX_POSITION_LIVE           = float(os.getenv("MAX_POSITION_LIVE", "8.0"))   # H
 MIN_POSITION_LIVE           = float(os.getenv("MIN_POSITION_LIVE", "1.0"))   # Min $1 (Polymarket minimum)
 DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt ($20 on live)
 KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch ($40 loss → full stop)
-MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "5"))
+MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))   # Paper: 8 concurrent; drop to 5 for live
 VALUE_BET_MAX_DAYS          = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))  # Skip markets resolving >14 days out
-MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "48"))     # Force-exit any position not resolved after 48h
+MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "24"))     # Force-exit any position not resolved after 24h — keeps Wolf cycling daily
 MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))
 MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
 
@@ -62,7 +62,7 @@ LATENCY_ARB_THRESHOLD       = float(os.getenv("LATENCY_ARB_THRESHOLD", "0.003"))
 MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.68"))     # Balanced: volume + quality
 VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.30"))  # raised 0.15→0.30: allows 55/45–65/35 markets; still blocks toxic 70/30+
 COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "600" if not (os.getenv("WOLF_PAPER_MODE","true").lower() != "false") else "28800"))  # Live=10min fresh signals only; Paper=8h wide window
-COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "30"))   # $30 min whale size
+COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "10"))   # $10 min whale size — wider net for more signals
 COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "5"))     # Demo validation trades (low — leaderboard wallets have proven PnL track record)
 WHALE_ALERT_THRESHOLD       = float(os.getenv("WHALE_ALERT_THRESHOLD", "500")) # $500 whale alert
 
