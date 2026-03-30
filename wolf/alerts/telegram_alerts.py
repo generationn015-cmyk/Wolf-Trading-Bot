@@ -114,7 +114,7 @@ def alert_trade_entry(
     short_market = short_market.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
     strat_clean = strategy.replace("_", " ").title()
     text = (
-        f"{dot} <b>{strat_clean}</b>  {side} @ {entry_price:.3f}\n"
+        f"{dot} <b>{strat_clean}</b>  {side} @ {entry_price:.3f}  ·  ${size:.2f}\n"
         f"<i>{short_market}</i>"
     )
     sent = _send(text)
@@ -149,6 +149,7 @@ def alert_trade_exit(
     strat_clean = strategy.replace("_", " ").title()
     text = (
         f"{result_icon} <b>{strat_clean}</b>  {side}  {pnl_str}  ({hold})\n"
+        f"Entry: {entry_price:.3f} → Exit: {exit_price:.3f}\n"
         f"<i>{short_market}</i>"
     )
     _send(text)
