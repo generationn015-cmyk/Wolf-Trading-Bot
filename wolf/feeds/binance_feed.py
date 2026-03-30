@@ -52,37 +52,59 @@ class BinanceFeed:
             logger.debug(f"REST fallback error for {sym}: {e}")
 
     async def _connect_loop(self):
+        """
+        Try WS first. If WS connects but immediately closes (VPS IP block — code 1000
+        with 0 messages) fall through to REST polling. REST at 2s interval gives
+        plenty of freshness for 5-min and 15-min TA candles.
+        """
         backoff = 1
         url_idx = 0
-        consecutive_failures = 0
+        ws_empty_strikes = 0  # Count of WS connections that yielded 0 messages
+
+        # Fast-path: probe REST first — if it works on this host, prefer it
+        await self._rest_fallback()
+        if self._price > 0:
+            logger.info(f"Binance REST reachable for {self.symbol} — using REST polling (WS blocked on VPS)")
+            while self._running:
+                await self._rest_fallback()
+                await asyncio.sleep(2)  # 2s poll — fresh enough for 5m/15m TA
+            return
+
         while self._running:
             try:
                 url = self.WS_URLS[url_idx % len(self.WS_URLS)].format(symbol=self.symbol)
-                async with websockets.connect(url, ping_interval=20) as ws:
+                msgs_received = 0
+                async with websockets.connect(url, ping_interval=20, open_timeout=8) as ws:
                     backoff = 1
-                    consecutive_failures = 0
                     logger.info(f"Binance WS connected: {self.symbol} via {url}")
                     async for msg in ws:
                         if not self._running:
                             break
+                        msgs_received += 1
+                        ws_empty_strikes = 0
                         data = json.loads(msg)
                         self._price = float(data["p"])
                         self._last_update = time.time()
+
+                if msgs_received == 0:
+                    # Connected but closed immediately — IP likely blocked
+                    ws_empty_strikes += 1
+                    url_idx += 1
+                    if ws_empty_strikes >= len(self.WS_URLS):
+                        logger.warning(f"Binance WS blocked for {self.symbol} — switching to REST polling")
+                        while self._running:
+                            await self._rest_fallback()
+                            await asyncio.sleep(2)
+                        return
+                    await asyncio.sleep(2)
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                consecutive_failures += 1
-                url_idx += 1  # Try next URL on next attempt
-                if consecutive_failures >= len(self.WS_URLS) * 2:
-                    # All WS endpoints failing — fall back to REST polling
-                    logger.warning(f"Binance WS unavailable for {self.symbol} — using REST fallback")
-                    while self._running:
-                        await self._rest_fallback()
-                        await asyncio.sleep(10)  # Poll every 10s
-                    break
-                logger.warning(f"Binance WS error: {e} — reconnecting in {backoff}s")
+                url_idx += 1
+                logger.warning(f"Binance WS error ({self.symbol}): {e} — retry in {backoff}s")
                 await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, 60)
+                backoff = min(backoff * 2, 30)
 
     def get_current_price(self) -> float:
         return self._price

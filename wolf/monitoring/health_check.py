@@ -50,7 +50,7 @@ class HealthCheck:
         try:
             from feeds.binance_feed import btc_feed
             age_ms = btc_feed.get_price_age_ms()
-            results["binance_ok"] = age_ms < 5000  # Fresh within 5s
+            results["binance_ok"] = age_ms < 15000  # Fresh within 15s (REST polling mode)
             if not results["binance_ok"]:
                 send_alert(f"Binance feed stale: {age_ms:.0f}ms", "WARNING")
         except Exception as e:
