@@ -44,12 +44,13 @@ BINANCE_WS_ETH              = "wss://stream.binance.com:9443/ws/ethusdt@trade"
 MAX_POSITION_PCT            = float(os.getenv("MAX_POSITION_PCT", "0.08"))   # 8% max per trade
 DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt
 KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch
-MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "3"))
+MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "5"))
+MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "2"))  # No strategy monopolizes slots
 MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
 
 # ─── STRATEGY PARAMETERS ─────────────────────────────────────────────────────
 LATENCY_ARB_THRESHOLD       = float(os.getenv("LATENCY_ARB_THRESHOLD", "0.003"))  # 0.3% divergence
-MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.65"))     # Fee-aware threshold
+MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.72"))     # Unproven system — high bar required
 VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.15"))
 COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "14400"))  # 4h — paper mode needs wider window; tighten to 300 for live
 COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "30"))   # $30 min whale size
@@ -57,8 +58,8 @@ COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "5"))     # 
 WHALE_ALERT_THRESHOLD       = float(os.getenv("WHALE_ALERT_THRESHOLD", "500")) # $500 whale alert
 
 # ─── PAPER MODE GATE ─────────────────────────────────────────────────────────
-PAPER_GATE_MIN_TRADES       = int(os.getenv("PAPER_GATE_MIN_TRADES", "50"))   # Reduced for 1-2 day sprint to live
-PAPER_GATE_MIN_WIN_RATE     = float(os.getenv("PAPER_GATE_MIN_WIN_RATE", "0.55"))  # Realistic threshold — not 80%
+PAPER_GATE_MIN_TRADES       = int(os.getenv("PAPER_GATE_MIN_TRADES", "100"))  # Need real sample before trusting
+PAPER_GATE_MIN_WIN_RATE     = float(os.getenv("PAPER_GATE_MIN_WIN_RATE", "0.72"))  # Real target: 85–95%
 
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
 HEARTBEAT_INTERVAL_SEC      = int(os.getenv("HEARTBEAT_INTERVAL_SEC", "1800"))  # 30 min

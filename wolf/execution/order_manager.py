@@ -57,6 +57,16 @@ class OrderManager:
         if self._is_duplicate(strategy, market_id, side):
             return {"status": "dedup_blocked", "reason": f"Already executed within {EXEC_DEDUP_WINDOW}s"}
 
+        # ── Per-strategy slot cap ─────────────────────────────────────────────
+        # No single strategy should monopolize all open positions
+        strat_open = sum(
+            1 for t in self.paper.open_trades
+            if t.strategy == strategy
+        ) if self.paper else 0
+        max_per = getattr(config, 'MAX_POSITIONS_PER_STRATEGY', 2)
+        if strat_open >= max_per:
+            return {"status": "blocked", "reason": f"Strategy slot cap: {strategy} already has {strat_open}/{max_per} open"}
+
         # ── Risk gate ─────────────────────────────────────────────────────────
         volume = signal.get("volume", config.MIN_MARKET_VOLUME + 1)
         can_trade, reason = self.risk.can_trade(market_volume=volume)
@@ -66,7 +76,7 @@ class OrderManager:
 
         # ── Position sizing (Kelly) ───────────────────────────────────────────
         edge = signal.get("edge", 0.1)
-        size = self.risk.get_position_size(edge=edge, confidence=confidence)
+        size = self.risk.get_position_size(edge=edge, confidence=confidence, entry_price=entry_price)
         if size <= 0:
             return {"status": "blocked",
                     "reason": f"Kelly size 0 (conf={confidence:.2f} below threshold)"}

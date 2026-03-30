@@ -77,16 +77,21 @@ class RiskEngine:
 
         return True, "ok"
 
-    def get_position_size(self, edge: float, confidence: float) -> float:
-        """Kelly Criterion position sizing. Conservative half-Kelly."""
+    def get_position_size(self, edge: float, confidence: float,
+                          entry_price: float = 0.5) -> float:
+        """
+        Kelly Criterion position sizing. Conservative half-Kelly.
+        Uses entry_price for correct binary market odds calculation.
+        Binary payout: win (1 - entry_price), lose entry_price.
+        b = (1 - entry_price) / entry_price
+        """
         if confidence < config.MIN_CONFIDENCE:
             return 0.0
 
-        # Kelly formula: f = (bp - q) / b
-        # where b = odds - 1, p = win probability, q = 1 - p
+        entry_price = max(0.05, min(0.95, entry_price))  # clamp to sane range
         p = confidence
         q = 1.0 - p
-        b = 1.0 / (1.0 - p) - 1.0  # binary bet odds
+        b = (1.0 - entry_price) / entry_price  # correct binary odds
 
         kelly_fraction = (b * p - q) / b
         half_kelly = kelly_fraction * 0.5  # half-Kelly for safety

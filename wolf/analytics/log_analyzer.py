@@ -311,6 +311,19 @@ class LogAnalyzer:
                 f"${data['pnl']:+.2f} | {data['total']}t"
             )
 
+        # Strategy diversity health check
+        total_trades = overall["total_trades"]
+        if total_trades >= 10 and strats:
+            dominant = max(strats.items(), key=lambda x: x[1]["total"])
+            dom_pct = dominant[1]["total"] / total_trades
+            if dom_pct > 0.80:
+                lines.append(f"")
+                lines.append(f"⚠️  Diversity: {dominant[0]} = {dom_pct:.0%} of trades — other strategies underutilized")
+            else:
+                active = sum(1 for d in strats.values() if d["total"] > 0)
+                lines.append(f"")
+                lines.append(f"✅ Diversity: {active}/{len(strats)} strategies active")
+
         if lessons:
             lines += ["", "Lessons:"]
             for lesson in lessons[:5]:

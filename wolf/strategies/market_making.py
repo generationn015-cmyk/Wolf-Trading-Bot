@@ -133,7 +133,7 @@ class MarketMaker:
             # Spread we'd capture posting both sides tight
             # Natural spread on Polymarket is typically 2–8 cents
             natural_spread = abs(yes_price - (1.0 - no_price))
-            if natural_spread < 0.02:
+            if natural_spread < 0.03:  # Require 3% spread minimum (raised from 2%)
                 continue  # Too tight — no edge
 
             # Synthetic VPIN from price imbalance
