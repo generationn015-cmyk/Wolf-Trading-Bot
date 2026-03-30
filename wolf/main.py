@@ -37,7 +37,7 @@ def handle_shutdown(sig, frame):
 
 
 # ─── Paper trade resolver ─────────────────────────────────────────────────────
-def _resolve_paper_trades(paper, journal):
+def _resolve_paper_trades(paper, journal, market_maker=None):
     """
     Resolve open paper trades using strategy-calibrated win probabilities.
     Runs every 30s. Does NOT stop trading — just settles pending positions.
@@ -71,7 +71,7 @@ def _resolve_paper_trades(paper, journal):
         result = paper.resolve_trade(trade.market_id, outcome)
         if result:
             # Notify MM so its slot opens up for re-entry
-            if trade.strategy == "market_making":
+            if trade.strategy == "market_making" and market_maker is not None:
                 market_maker.on_trade_resolved(trade.market_id)
             journal.log_paper_trade({
                 "timestamp": now,
@@ -252,7 +252,7 @@ async def main():
             if config.PAPER_MODE and now - last_resolve > RESOLVE_INTERVAL:
                 last_resolve = now
                 try:
-                    _resolve_paper_trades(paper, journal)
+                    _resolve_paper_trades(paper, journal, market_maker)
                 except Exception as e:
                     logger.warning(f"Paper resolve error: {e}")
 
