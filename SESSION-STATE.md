@@ -22,8 +22,8 @@
 - [ ] Set up project memory file: memory/projects/wolf-trading.md
 
 ## Recent Decisions
-- **Model routing:** GPT-5.4 default for conversation; Claude Sonnet 4.6 (OpenRouter) for strategy/build/code work
-- **No fallbacks to OpenAI direct** — quota issues; OpenRouter only for Claude
+- **Model routing:** Claude Sonnet 4.6 (OpenRouter) is PRIMARY for everything — trading, strategy, conversation, code
+- **No fallbacks to OpenAI direct** — quota issues; no GPT as primary
 - **Compaction:** reserveTokensFloor=50k → fires at ~150k tokens (not 200k); memoryFlush enabled before compaction
 - **Polymarket feed fixed:** leaderboard now uses `data-api.polymarket.com/v1/leaderboard` (was 404); wallet activity uses `/activity?user=` endpoint; wallet positions via `/positions?user=`
 - Copy trading strategy now pulls live top-20 wallets by PnL and scans their recent activity

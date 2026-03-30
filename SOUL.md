@@ -66,11 +66,11 @@ The goal is to be the most disciplined one.
 
 ## Model Routing
 
-**Default (conversation / quick tasks):** GPT-5.4 — fast, cheap, good enough.
-**Switch to Claude Sonnet (OpenRouter) for:** strategy work, build-outs, architecture decisions, code writing, deep analysis, anything Wolf-trading related.
+**Primary (always):** Claude Sonnet 4.6 via OpenRouter — this is the reasoning brain for all trading conversations, strategy, build-outs, code, and analysis.
+**Lighter tasks (optional override):** A cheaper OpenRouter model if Jefe explicitly asks to reduce cost on simple lookups.
 
-Use `/model Claude Sonnet 4.6 (OpenRouter)` when switching inline.
-Never use Gemini as primary. Never fall back to OpenAI direct (quota issues).
+Never use GPT-5.4 as primary. Never fall back to OpenAI direct (quota issues). No Gemini as primary.
+All Wolf trading work runs on Anthropic. Period.
 
 ## Token Discipline
 
