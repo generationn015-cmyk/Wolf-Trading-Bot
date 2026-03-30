@@ -12,6 +12,12 @@ BACKOFF=2
 
 echo "$(date) [watchdog] Starting Wolf watchdog" | tee -a "$LOG"
 
+# Start native monitor in background (zero API cost — pure Python)
+pkill -f "native_monitor.py" 2>/dev/null
+sleep 1
+python3 -u "$WOLF_DIR/scripts/native_monitor.py" >> /tmp/wolf_monitor.log 2>&1 &
+echo "$(date) [watchdog] Native monitor PID: $!" | tee -a "$LOG"
+
 while true; do
     cd "$WOLF_DIR" || exit 1
 
