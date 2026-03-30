@@ -11,6 +11,7 @@ from typing import Optional
 import config
 from feeds.polymarket_feed import get_top_wallets, get_wallet_activity, get_market_volume
 from intelligence import IntelligenceEngine, WalletMetrics
+from learning_engine import learning
 
 logger = logging.getLogger("wolf.strategy.copy_trading")
 
@@ -154,30 +155,43 @@ class CopyTrader:
 
                 if size < config.COPY_TRADE_MIN_SIZE:
                     continue
-                if not (0.05 <= price <= 0.95):
+                # Sharp filter: only trade mid-range prices (clearest signal)
+                if not (0.10 <= price <= 0.90):
                     continue
                 if side not in ("YES", "NO"):
                     continue
 
+                # Skip price ranges that learning engine has flagged as historically weak
+                if learning.is_bad_price(price):
+                    logger.debug(f"Skipping {addr[:10]}... price {price:.2f} in bad range")
+                    continue
+
                 # Volume check: use trade size as proxy since conditionId != clobTokenId
-                # A whale putting $1000+ in a market implies sufficient liquidity
                 volume = get_market_volume(market_id)
                 if volume < config.MIN_MARKET_VOLUME:
-                    # Fallback: if whale trade size >= $500, treat as liquid enough
-                    if size < 500:
+                    if size < 1000:  # Raised from $500 — require stronger whale conviction
                         continue
-                    volume = size * 100  # conservative estimate
+                    volume = size * 100
+
+                # Apply wallet penalty from learning engine
+                wallet_multiplier = learning.get_wallet_weight_multiplier(addr)
+                if wallet_multiplier < 0.5:
+                    logger.debug(f"Skipping penalized wallet {addr[:10]}...")
+                    continue
 
                 profile.last_seen_trade_id = trade_id
 
-                # Leaderboard wallets are pre-vetted by on-chain PnL — skip demo validation
-                # They've made $100k–$2M+ on-chain; that IS their validation
                 if not profile.demo_validated:
                     profile.demo_validated = True
-                    logger.info(f"Wallet {addr[:10]}... auto-validated (leaderboard top trader, PnL ${profile.pnl:,.0f})")
+                    logger.info(f"Wallet {addr[:10]}... auto-validated (leaderboard PnL ${profile.pnl:,.0f})")
 
-                confidence = min(0.85, 0.65 + profile.weight * 0.2)
-                if confidence >= config.MIN_CONFIDENCE:
+                # Confidence: base on wallet PnL rank + learning floor
+                learned_floor = learning.get_confidence_floor("copy_trading")
+                base_confidence = min(0.90, 0.70 + profile.weight * 0.25 + (profile.pnl / 2_000_000) * 0.1)
+                confidence = max(base_confidence, learned_floor)
+
+                # Only fire on highest-conviction setups
+                if confidence >= max(learned_floor, 0.72):
                     signals.append({
                         "strategy": "copy_trading",
                         "venue": "polymarket",

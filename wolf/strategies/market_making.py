@@ -10,6 +10,7 @@ import asyncio
 from dataclasses import dataclass
 import config
 from feeds.polymarket_feed import get_orderbook, get_market_volume, get_market_price
+from learning_engine import learning
 from feeds.polymarket_feed import POLYMARKET_DATA_URL
 import requests
 
@@ -182,7 +183,7 @@ class MarketMaker:
         # A 2% captured spread on a liquid market is a solid MM opportunity.
         confidence = min(0.70, 0.5 + captured_spread * 5)
 
-        MM_MIN_CONFIDENCE = 0.55  # Lower bar for spread capture vs directional
+        MM_MIN_CONFIDENCE = max(0.55, learning.get_confidence_floor("market_making"))
         if confidence >= MM_MIN_CONFIDENCE:
             signals.append({
                 "strategy": "market_making",

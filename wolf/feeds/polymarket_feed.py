@@ -16,7 +16,9 @@ def get_client():
     global _client
     if _client is None:
         if not config.POLYMARKET_PRIVATE_KEY:
-            logger.warning("Polymarket credentials not set — read-only mode")
+            logger.info("Polymarket CLOB client not initialized — running in public read-only mode. "
+                        "All leaderboard/market/price/activity data uses free public REST APIs. "
+                        "Credentials only needed for live order execution.")
             return None
         try:
             from py_clob_client.client import ClobClient

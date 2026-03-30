@@ -12,14 +12,20 @@ import time
 import config
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s — %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("/data/.openclaw/workspace/wolf/wolf.log"),
-    ]
-)
+_log_file = "/data/.openclaw/workspace/wolf/wolf.log"
+_root_logger = logging.getLogger()
+if not _root_logger.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(name)s] %(levelname)s — %(message)s",
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(_log_file),
+        ]
+    )
+else:
+    # Already configured — just ensure level is right
+    _root_logger.setLevel(logging.INFO)
 logger = logging.getLogger("wolf.main")
 
 def _resolve_paper_trades(paper, journal):
@@ -99,6 +105,7 @@ async def main():
     latency_arb = LatencyArb()
     copy_trader = CopyTrader()
     market_maker = MarketMaker()
+    from learning_engine import learning
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
     logger.info(f"🐺 Wolf starting in {mode} mode")
@@ -206,6 +213,14 @@ async def main():
                     f"open: {stats['open_trades']} | "
                     f"gate: {stats['gate_message']}"
                 )
+
+            # Run learning engine analysis — adapts thresholds from trade history
+            if learning.should_run():
+                lessons = learning.analyze()
+                if lessons.get("summary"):
+                    s = lessons["summary"]
+                    if s["total_trades"] > 0:
+                        logger.info(f"🧠 {learning.get_status()}")
 
             # Check paper gate — alert once
             if not gate_alerted:

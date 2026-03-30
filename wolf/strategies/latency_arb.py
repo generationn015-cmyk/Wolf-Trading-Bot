@@ -10,6 +10,7 @@ import asyncio
 import config
 from feeds.binance_feed import btc_feed, eth_feed
 from feeds.polymarket_feed import get_active_btc_markets, get_market_price, get_market_volume
+from learning_engine import learning
 
 logger = logging.getLogger("wolf.strategy.latency_arb")
 
@@ -81,7 +82,7 @@ class LatencyArb:
         if real_higher and yes_price < (1.0 - config.LATENCY_ARB_THRESHOLD):
             edge = (1.0 - config.LATENCY_ARB_THRESHOLD) - yes_price
             confidence = min(0.95, 0.5 + edge * 5)
-            if confidence >= config.MIN_CONFIDENCE:
+            if confidence >= max(config.MIN_CONFIDENCE, learning.get_confidence_floor("latency_arb")):
                 return {
                     "strategy": "latency_arb",
                     "venue": "polymarket",
@@ -98,7 +99,7 @@ class LatencyArb:
         if real_lower and no_price < (1.0 - config.LATENCY_ARB_THRESHOLD):
             edge = (1.0 - config.LATENCY_ARB_THRESHOLD) - no_price
             confidence = min(0.95, 0.5 + edge * 5)
-            if confidence >= config.MIN_CONFIDENCE:
+            if confidence >= max(config.MIN_CONFIDENCE, learning.get_confidence_floor("latency_arb")):
                 return {
                     "strategy": "latency_arb",
                     "venue": "polymarket",
