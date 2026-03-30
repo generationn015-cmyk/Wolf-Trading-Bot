@@ -52,9 +52,13 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
 
         strategy = trade.strategy
         if strategy == "market_making":
-            # MM trades are paired (YES+NO on same market).
-            # Both can't win — one wins at ~1.0, one loses at ~0.0.
-            # Net effect: spread captured. Simulate 50% each side (realistic).
+            # MM trades are PAIRED — YES and NO on same market.
+            # One side always wins, one always loses — net = spread captured.
+            # To simulate correctly: alternate YES wins / NO wins per market.
+            # We use entry_price to determine: if price < 0.5 → this is the cheap
+            # side (we posted on the expected-loser side) → 50% chance.
+            # But over many paired trades the NET is always positive (spread).
+            # Sim: 50/50 per leg is correct — PnL nets positive via spread.
             win_prob = 0.50
         elif strategy == "copy_trading":
             # Top leaderboard traders historically win 70-88%
@@ -105,6 +109,9 @@ async def main():
     from strategies.market_making import MarketMaker
     from strategies.timezone_arb import TimezoneArb
     from strategies.complement_arb import ComplementArb
+    from strategies.kalshi_copy import KalshiCopyTrader
+    from strategies.near_expiry import NearExpiryStrategy
+    from strategies.cross_platform_arb import CrossPlatformArb
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
     from learning_engine import learning
@@ -119,8 +126,11 @@ async def main():
     latency_arb    = LatencyArb()
     copy_trader    = CopyTrader()
     market_maker   = MarketMaker()
-    timezone_arb   = TimezoneArb()
-    complement_arb = ComplementArb()
+    timezone_arb      = TimezoneArb()
+    complement_arb    = ComplementArb()
+    kalshi_copy       = KalshiCopyTrader()
+    near_expiry       = NearExpiryStrategy()
+    cross_platform    = CrossPlatformArb()
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
     logger.info(f"🐺 Wolf starting in {mode} mode")
@@ -158,11 +168,17 @@ async def main():
         logger.warning(f"Dashboard failed: {e}")
 
     send_alert(
-        f"Wolf fully online 🐺\n"
-        f"Mode: {mode}\n"
-        f"Strategies: Latency Arb + Copy Trading + Market Making\n"
-        f"Paper runs continuously. Gate milestone = Telegram alert to Jefe.\n"
-        f"Wolf will NOT switch to live until Jefe authorizes.",
+        f"🐺 Wolf online — {mode}\n"
+        f"8 strategies active:\n"
+        f"  1. Latency Arb (9–16s, 0.11% BTC)\n"
+        f"  2. Copy Trading (Polymarket top wallets)\n"
+        f"  3. Complement Arb (YES+NO < $0.95)\n"
+        f"  4. Timezone Arb (global RSS, 2–9AM ET)\n"
+        f"  5. Near Expiry (<2h, $0.94–$0.99)\n"
+        f"  6. Cross-Platform Arb (Poly ↔ Kalshi)\n"
+        f"  7. Kalshi Copy Trading\n"
+        f"  8. Market Making\n"
+        f"Paper until Jefe authorizes live.",
         "INFO"
     )
 
@@ -233,7 +249,48 @@ async def main():
             except Exception as e:
                 logger.warning(f"Timezone arb error: {e}")
 
-            # Priority 5: Market Making
+            # Priority 5: Near-Expiry (high-confidence, near-certain outcomes)
+            try:
+                for sig in await near_expiry.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] NearExpiry: "
+                            f"[{sig.get('venue','?')}] "
+                            f"{sig['market_id'][:20]}... {sig['side']} "
+                            f"@ {sig['entry_price']:.3f}"
+                        )
+            except Exception as e:
+                logger.warning(f"Near expiry error: {e}")
+
+            # Priority 6: Cross-Platform Arb (Polymarket ↔ Kalshi)
+            try:
+                for sig in await cross_platform.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] CrossArb: "
+                            f"[{sig.get('venue','?')}] "
+                            f"{sig['market_id'][:20]}... {sig['side']} "
+                            f"edge={sig.get('edge',0):.3f}"
+                        )
+            except Exception as e:
+                logger.warning(f"Cross platform arb error: {e}")
+
+            # Priority 7: Kalshi Copy Trading
+            try:
+                for sig in await kalshi_copy.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] KalshiCopy: "
+                            f"{sig['market_id'][:20]}... {sig['side']} "
+                            f"conf={sig['confidence']:.2f}"
+                        )
+            except Exception as e:
+                logger.warning(f"Kalshi copy error: {e}")
+
+            # Priority 8: Market Making
             try:
                 for sig in await market_maker.scan():
                     res = order_manager.execute_signal(sig)
