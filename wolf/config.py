@@ -5,7 +5,9 @@ All settings loaded from environment variables. Never hardcode credentials.
 import os
 from dotenv import load_dotenv
 
-# Load .env file if present
+# Load wolf-specific .env first, then fall back to openclaw .env
+_wolf_env = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(_wolf_env, override=True)
 load_dotenv(os.path.expanduser("~/.openclaw/.env"))
 
 # ─── PAPER MODE (MUST be explicitly set False to go live) ───────────────────
