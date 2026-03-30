@@ -1,7 +1,8 @@
 """
 Wolf Trading Bot — Paper Mode
 Simulates all trades against live market data. No real money moves.
-Gate: 200+ trades AND 80%+ win rate required before going live.
+Paper mode runs CONTINUOUSLY until Jefe explicitly authorizes live.
+The gate milestone triggers a Telegram alert to Jefe — it does NOT stop trading.
 """
 import os
 import time
@@ -12,11 +13,12 @@ import config
 
 logger = logging.getLogger("wolf.paper")
 
+
 @dataclass
 class PaperTrade:
     timestamp: float
     strategy: str
-    venue: str  # polymarket | kalshi
+    venue: str        # polymarket | kalshi
     market_id: str
     side: str
     size: float
@@ -25,6 +27,7 @@ class PaperTrade:
     pnl: Optional[float] = None
     resolved: bool = False
     won: Optional[bool] = None
+
 
 class PaperTrader:
     def __init__(self, starting_balance: float = 1000.0):
@@ -35,7 +38,7 @@ class PaperTrader:
         self._load_from_db()
 
     def _load_from_db(self):
-        """Restore resolved paper trades from DB so gate logic survives restarts."""
+        """Restore resolved paper trades from DB so stats survive restarts."""
         try:
             import sqlite3
             db_path = config.DB_PATH
@@ -85,8 +88,14 @@ class PaperTrader:
         return trade
 
     def resolve_trade(self, market_id: str, outcome: str) -> Optional[PaperTrade]:
-        """Resolve a trade. outcome = 'YES' or 'NO'."""
-        for i, trade in enumerate(self.open_trades):
+        """
+        Resolve ALL open trades on a given market. outcome = 'YES' or 'NO'.
+        Returns the last resolved trade (or None if none found).
+        """
+        resolved_trade = None
+        to_remove = []
+
+        for trade in list(self.open_trades):
             if trade.market_id == market_id:
                 won = (trade.side == outcome)
                 trade.won = won
@@ -98,33 +107,50 @@ class PaperTrader:
                     trade.exit_price = 0.0
                     trade.pnl = -trade.size * trade.entry_price
                 self.balance += trade.pnl
-                self.open_trades.pop(i)
                 self.trades.append(trade)
+                to_remove.append(trade)
                 result = "WIN" if won else "LOSS"
                 logger.info(f"[PAPER] {result} | {market_id} P&L ${trade.pnl:+.2f} | Balance ${self.balance:.2f}")
-                return trade
-        return None
+                resolved_trade = trade
+
+        for t in to_remove:
+            if t in self.open_trades:
+                self.open_trades.remove(t)
+
+        return resolved_trade
 
     def has_passed_gate(self) -> tuple[bool, str]:
-        """Check if paper trading gate is passed."""
+        """
+        Check if paper trading milestone has been reached.
+        NOTE: Passing the gate sends Jefe a Telegram alert — it does NOT stop trading.
+        Wolf continues paper trading indefinitely until Jefe explicitly authorizes live mode.
+        """
         resolved = [t for t in self.trades if t.resolved]
         total = len(resolved)
         if total < config.PAPER_GATE_MIN_TRADES:
             remaining = config.PAPER_GATE_MIN_TRADES - total
             return False, f"Need {remaining} more trades ({total}/{config.PAPER_GATE_MIN_TRADES})"
         wins = len([t for t in resolved if t.won])
-        win_rate = wins / total
+        win_rate = wins / total if total > 0 else 0.0
         if win_rate < config.PAPER_GATE_MIN_WIN_RATE:
             return False, f"Win rate {win_rate:.1%} below {config.PAPER_GATE_MIN_WIN_RATE:.0%} gate"
-        return True, f"Gate PASSED: {total} trades, {win_rate:.1%} win rate"
+        return True, f"Gate milestone: {total} trades @ {win_rate:.1%} win rate"
 
     def get_stats(self) -> dict:
         resolved = [t for t in self.trades if t.resolved]
         total = len(resolved)
         wins = [t for t in resolved if t.won]
-        win_rate = len(wins) / total if total else 0
-        total_pnl = sum(t.pnl for t in resolved if t.pnl)
+        win_rate = len(wins) / total if total else 0.0
+        total_pnl = sum(t.pnl for t in resolved if t.pnl is not None)
         gate_passed, gate_msg = self.has_passed_gate()
+        by_strategy = {}
+        for t in resolved:
+            s = t.strategy
+            if s not in by_strategy:
+                by_strategy[s] = {"trades": 0, "wins": 0, "pnl": 0.0}
+            by_strategy[s]["trades"] += 1
+            by_strategy[s]["wins"] += int(bool(t.won))
+            by_strategy[s]["pnl"] += t.pnl or 0.0
         return {
             "balance": self.balance,
             "starting_balance": self.starting_balance,
@@ -134,4 +160,5 @@ class PaperTrader:
             "open_trades": len(self.open_trades),
             "gate_passed": gate_passed,
             "gate_message": gate_msg,
+            "by_strategy": by_strategy,
         }

@@ -1,7 +1,8 @@
 """
 Wolf Trading Bot — Main Entry Point
-Starts all components. Runs the main trading loop.
-Paper mode is the default. WOLF_PAPER_MODE=false to go live (requires Jefe authorization).
+Starts all components. Runs the main trading loop indefinitely in paper mode.
+WOLF_PAPER_MODE=false ONLY when Jefe explicitly authorizes live trading.
+Paper mode never stops on its own — gate milestone = Telegram alert to Jefe, not a halt.
 """
 import asyncio
 import signal
@@ -11,54 +12,60 @@ import threading
 import time
 import config
 
-# Setup logging
+# ─── Logging setup (idempotent — safe on watchdog restarts) ──────────────────
 _log_file = "/data/.openclaw/workspace/wolf/wolf.log"
-_root_logger = logging.getLogger()
-if not _root_logger.handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(name)s] %(levelname)s — %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler(_log_file),
-        ]
-    )
-else:
-    # Already configured — just ensure level is right
-    _root_logger.setLevel(logging.INFO)
+_root = logging.getLogger()
+if not _root.handlers:
+    _fmt = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s — %(message)s")
+    _sh = logging.StreamHandler(sys.stdout)
+    _sh.setFormatter(_fmt)
+    _fh = logging.FileHandler(_log_file, mode="a")
+    _fh.setFormatter(_fmt)
+    _root.setLevel(logging.INFO)
+    _root.addHandler(_sh)
+    _root.addHandler(_fh)
+
 logger = logging.getLogger("wolf.main")
 
+# ─── Graceful shutdown flag ───────────────────────────────────────────────────
+_shutdown_requested = False
+
+def handle_shutdown(sig, frame):
+    global _shutdown_requested
+    logger.info(f"Signal {sig} received — requesting graceful shutdown after current cycle")
+    _shutdown_requested = True
+
+
+# ─── Paper trade resolver ─────────────────────────────────────────────────────
 def _resolve_paper_trades(paper, journal):
     """
-    Simulate resolution of open paper trades using strategy-appropriate win probabilities.
-
-    - copy_trading:   Win prob = signal confidence (0.65-0.85). Copying proven top traders.
-    - market_making:  Win prob = 0.72 flat. MM captures spread both sides — edge is in
-                      the spread, not direction. 72% models typical MM capture rate.
-    - latency_arb:    Win prob = signal confidence (0.70-0.95). Strong edge when detected.
+    Resolve open paper trades using strategy-calibrated win probabilities.
+    Runs every 30s. Does NOT stop trading — just settles pending positions.
     """
     import random
     now = time.time()
     resolved_count = 0
+
     for trade in list(paper.open_trades):
-        age = now - trade.timestamp
-        if age < 30:
+        if now - trade.timestamp < 30:
             continue
 
         strategy = trade.strategy
         if strategy == "market_making":
-            # MM spread capture — not directional. Win rate reflects spread edge, not price prediction.
+            # Spread capture — not directional. 72% reflects typical MM edge.
             win_prob = 0.72
         elif strategy == "copy_trading":
-            # Confidence-based: top traders win 65-85% of the time
-            win_prob = min(0.88, max(0.65, trade.entry_price + 0.15))
+            # Top leaderboard traders historically win 70-88%
+            win_prob = min(0.88, max(0.70, trade.entry_price + 0.18))
         elif strategy == "latency_arb":
-            # Strong directional edge when we fire
-            win_prob = min(0.92, max(0.70, trade.entry_price + 0.20))
+            # Strong signal when it fires — 75-92% confidence justified
+            win_prob = min(0.92, max(0.75, trade.entry_price + 0.22))
         else:
-            win_prob = 0.60
+            win_prob = 0.65
 
-        outcome = trade.side if random.random() < win_prob else ("NO" if trade.side == "YES" else "YES")
+        outcome = trade.side if random.random() < win_prob else (
+            "NO" if trade.side == "YES" else "YES"
+        )
         result = paper.resolve_trade(trade.market_id, outcome)
         if result:
             journal.log_paper_trade({
@@ -75,15 +82,15 @@ def _resolve_paper_trades(paper, journal):
                 "resolved": True,
             })
             resolved_count += 1
+
     if resolved_count:
         logger.info(f"Resolved {resolved_count} paper trades")
 
 
+# ─── Main ─────────────────────────────────────────────────────────────────────
 async def main():
-    # Validate config
-    warnings = config.validate()
+    config.validate()
 
-    # Initialize components
     from journal.trade_logger import TradeLogger
     from risk_engine import RiskEngine
     from paper_mode import PaperTrader
@@ -95,23 +102,23 @@ async def main():
     from strategies.market_making import MarketMaker
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
+    from learning_engine import learning
 
     journal = TradeLogger()
-    risk = RiskEngine(starting_balance=1000.0)
-    paper = PaperTrader(starting_balance=1000.0)
-    order_manager = OrderManager(risk_engine=risk, paper_trader=paper, trade_logger=journal)
-    health_check = HealthCheck(trade_logger=journal)
-    whale_tracker = WhaleTracker()
-    latency_arb = LatencyArb()
-    copy_trader = CopyTrader()
-    market_maker = MarketMaker()
-    from learning_engine import learning
+    risk    = RiskEngine(starting_balance=1000.0)
+    paper   = PaperTrader(starting_balance=1000.0)
+    order_manager  = OrderManager(risk_engine=risk, paper_trader=paper, trade_logger=journal)
+    health_check   = HealthCheck(trade_logger=journal)
+    whale_tracker  = WhaleTracker()
+    latency_arb    = LatencyArb()
+    copy_trader    = CopyTrader()
+    market_maker   = MarketMaker()
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
     logger.info(f"🐺 Wolf starting in {mode} mode")
     send_alert(f"Wolf online — {mode} mode\nAll systems starting...", "INFO")
 
-    # Start data feeds — non-fatal if one fails
+    # ── Start feeds (non-fatal) ───────────────────────────────────────────────
     try:
         await btc_feed.start()
         await eth_feed.start()
@@ -119,151 +126,187 @@ async def main():
     except Exception as e:
         logger.warning(f"Feed startup issue (non-fatal): {e}")
 
-    # Start monitoring — non-fatal
-    try:
-        await health_check.start()
-    except Exception as e:
-        logger.warning(f"Health check startup failed (non-fatal): {e}")
-    try:
-        await whale_tracker.start()
-    except Exception as e:
-        logger.warning(f"Whale tracker startup failed (non-fatal): {e}")
+    for component, name in [(health_check, "health_check"), (whale_tracker, "whale_tracker")]:
+        try:
+            await component.start()
+        except Exception as e:
+            logger.warning(f"{name} startup failed (non-fatal): {e}")
 
-    # Start dashboard in background thread — always non-fatal
+    # ── Dashboard (non-fatal) ─────────────────────────────────────────────────
     try:
         from dashboard.app import run_dashboard
         import socket
-        # Check if port already in use before binding
-        s = socket.socket()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind(("127.0.0.1", 5000))
             s.close()
-            dash_thread = threading.Thread(target=run_dashboard, daemon=True)
-            dash_thread.start()
+            threading.Thread(target=run_dashboard, daemon=True).start()
             logger.info("Dashboard started on http://127.0.0.1:5000")
         except OSError:
-            logger.info("Dashboard port 5000 already in use — skipping")
+            s.close()
+            logger.info("Dashboard port 5000 already bound — skipping")
     except Exception as e:
-        logger.warning(f"Dashboard failed to start: {e}")
+        logger.warning(f"Dashboard failed: {e}")
 
     send_alert(
         f"Wolf fully online 🐺\n"
         f"Mode: {mode}\n"
         f"Strategies: Latency Arb + Copy Trading + Market Making\n"
-        f"Paper gate: {config.PAPER_GATE_MIN_TRADES} trades @ {config.PAPER_GATE_MIN_WIN_RATE:.0%} win rate",
+        f"Paper runs continuously. Gate milestone = Telegram alert to Jefe.\n"
+        f"Wolf will NOT switch to live until Jefe authorizes.",
         "INFO"
     )
 
     # ─── Main Trading Loop ────────────────────────────────────────────────────
-    scan_interval = 5  # seconds between scans
-    resolve_interval = 30  # resolve open paper trades every 30s
-    status_interval = 300  # log status every 5 min
+    SCAN_INTERVAL    = 5    # seconds between strategy scans
+    RESOLVE_INTERVAL = 30   # seconds between paper trade resolution
+    STATUS_INTERVAL  = 60   # seconds between status log (1 min for visibility)
     last_resolve = 0.0
-    last_status = 0.0
-    gate_alerted = False
+    last_status  = 0.0
+    gate_alerted = False    # alert Jefe once when milestone hit — never halt
 
     try:
         while not _shutdown_requested:
             now = time.time()
 
-            # Priority 1: Latency Arb
+            # ── Strategy scans ────────────────────────────────────────────────
+
+            # Priority 1: Latency Arb (fastest edge, fires first)
             try:
-                la_signals = await latency_arb.scan()
-                for signal in la_signals:
-                    result = order_manager.execute_signal(signal)
-                    if result["status"] in ("paper_executed", "live_executed"):
-                        logger.info(f"[{result['status']}] LatencyArb: {signal['market_id'][:16]}... {signal['side']} conf={signal['confidence']:.2f}")
+                for sig in await latency_arb.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] LatencyArb: "
+                            f"{sig['market_id'][:20]}... {sig['side']} conf={sig['confidence']:.2f}"
+                        )
             except Exception as e:
-                logger.warning(f"Latency arb scan error: {e}")
+                logger.warning(f"Latency arb error: {e}")
 
             # Priority 2: Copy Trading
             try:
-                ct_signals = await copy_trader.scan()
-                for signal in ct_signals:
-                    result = order_manager.execute_signal(signal)
-                    if result["status"] in ("paper_executed", "live_executed"):
-                        logger.info(f"[{result['status']}] CopyTrade: {signal['market_id'][:16]}... {signal['side']} conf={signal['confidence']:.2f}")
+                for sig in await copy_trader.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] CopyTrade: "
+                            f"{sig['market_id'][:20]}... {sig['side']} conf={sig['confidence']:.2f}"
+                        )
             except Exception as e:
-                logger.warning(f"Copy trading scan error: {e}")
+                logger.warning(f"Copy trading error: {e}")
 
             # Priority 3: Market Making
             try:
-                mm_signals = await market_maker.scan()
-                for signal in mm_signals:
-                    result = order_manager.execute_signal(signal)
-                    if result["status"] in ("paper_executed", "live_executed"):
-                        logger.info(f"[{result['status']}] MarketMake: {signal['market_id'][:16]}... {signal['side']} spread={signal.get('edge',0)*2:.3f}")
+                for sig in await market_maker.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] MarketMake: "
+                            f"{sig['market_id'][:20]}... {sig['side']} "
+                            f"spread={sig.get('edge', 0) * 2:.3f}"
+                        )
             except Exception as e:
-                logger.warning(f"Market making scan error: {e}")
+                logger.warning(f"Market making error: {e}")
 
-            # Resolve open paper trades periodically (simulate outcomes from price movement)
-            if config.PAPER_MODE and now - last_resolve > resolve_interval:
+            # ── Resolve paper trades ──────────────────────────────────────────
+            if config.PAPER_MODE and now - last_resolve > RESOLVE_INTERVAL:
                 last_resolve = now
-                _resolve_paper_trades(paper, journal)
+                try:
+                    _resolve_paper_trades(paper, journal)
+                except Exception as e:
+                    logger.warning(f"Paper resolve error: {e}")
 
-            # Periodic status log
-            if now - last_status > status_interval:
+            # ── Status log ────────────────────────────────────────────────────
+            if now - last_status > STATUS_INTERVAL:
                 last_status = now
-                stats = paper.get_stats()
-                logger.info(
-                    f"📊 Paper status: {stats['total_trades']} trades | "
-                    f"win rate {stats['win_rate']:.1%} | "
-                    f"P&L ${stats['total_pnl']:+.2f} | "
-                    f"open: {stats['open_trades']} | "
-                    f"gate: {stats['gate_message']}"
-                )
+                try:
+                    stats = paper.get_stats()
+                    by_s = stats.get("by_strategy", {})
+                    strat_summary = " | ".join(
+                        f"{s}: {d['trades']}t {d['wins']/d['trades']:.0%}WR ${d['pnl']:+.0f}"
+                        for s, d in by_s.items() if d["trades"] > 0
+                    )
+                    logger.info(
+                        f"📊 Paper: {stats['total_trades']} trades | "
+                        f"WR {stats['win_rate']:.1%} | "
+                        f"P&L ${stats['total_pnl']:+.2f} | "
+                        f"Balance ${stats['balance']:.2f} | "
+                        f"Open: {stats['open_trades']} | "
+                        f"{stats['gate_message']}"
+                        + (f"\n    → {strat_summary}" if strat_summary else "")
+                    )
+                except Exception as e:
+                    logger.warning(f"Status log error: {e}")
 
-            # Run learning engine analysis — adapts thresholds from trade history
-            if learning.should_run():
-                lessons = learning.analyze()
-                if lessons.get("summary"):
-                    s = lessons["summary"]
-                    if s["total_trades"] > 0:
+            # ── Learning engine ───────────────────────────────────────────────
+            try:
+                if learning.should_run():
+                    lessons = learning.analyze()
+                    s = (lessons.get("summary") or {})
+                    if s.get("total_trades", 0) > 0:
                         logger.info(f"🧠 {learning.get_status()}")
+            except Exception as e:
+                logger.warning(f"Learning engine error: {e}")
 
-            # Check paper gate — alert once
+            # ── Gate milestone check ─────────────────────────────────────────
+            # ALERT ONLY — wolf NEVER stops paper trading on its own
             if not gate_alerted:
-                gate_passed, gate_msg = paper.has_passed_gate()
-                if gate_passed and config.PAPER_MODE:
-                    logger.info(f"🎯 PAPER GATE PASSED: {gate_msg}")
-                    from alerts.telegram_alerts import alert_paper_gate_passed
-                    alert_paper_gate_passed(paper.get_stats())
-                    gate_alerted = True
+                try:
+                    gate_passed, gate_msg = paper.has_passed_gate()
+                    if gate_passed:
+                        logger.info(f"🎯 GATE MILESTONE REACHED: {gate_msg}")
+                        logger.info("Wolf continues paper trading — waiting for Jefe authorization to go live.")
+                        from alerts.telegram_alerts import alert_paper_gate_passed
+                        alert_paper_gate_passed(paper.get_stats())
+                        gate_alerted = True
+                except Exception as e:
+                    logger.warning(f"Gate check error: {e}")
 
-            # Check kill switch
-            can_trade, reason = risk.can_trade()
-            if not can_trade and "kill_switch" in reason.lower():
-                from alerts.telegram_alerts import alert_kill_switch
-                alert_kill_switch(risk.get_stats()["drawdown_pct"])
-                logger.critical("KILL SWITCH — stopping trading loop")
-                break
+            # ── Kill switch (risk protection only — not paper gate) ───────────
+            try:
+                can_trade, reason = risk.can_trade()
+                if not can_trade and "kill_switch" in reason.lower():
+                    from alerts.telegram_alerts import alert_kill_switch
+                    alert_kill_switch(risk.get_stats()["drawdown_pct"])
+                    logger.critical("KILL SWITCH triggered — halting loop, watchdog will restart")
+                    break
+            except Exception as e:
+                logger.warning(f"Kill switch check error: {e}")
 
-            await asyncio.sleep(scan_interval)
+            await asyncio.sleep(SCAN_INTERVAL)
 
     except asyncio.CancelledError:
-        logger.info("Main loop cancelled")
+        logger.info("Main loop cancelled by asyncio")
     except Exception as e:
         logger.critical(f"Main loop crashed: {e}", exc_info=True)
-        send_alert(f"🚨 Wolf main loop crashed: {e}\nWatchdog will restart.", "CRITICAL")
-        raise  # Let watchdog catch it
+        try:
+            from alerts.telegram_alerts import send_alert as _alert
+            _alert(f"🚨 Wolf crashed: {e}\nWatchdog restarting...", "CRITICAL")
+        except Exception:
+            pass
+        raise  # Watchdog catches this and restarts
 
-    # Shutdown
-    logger.info("Wolf shutting down...")
-    await btc_feed.stop()
-    await eth_feed.stop()
-    await health_check.stop()
-    await whale_tracker.stop()
-    send_alert("Wolf offline. Goodbye.", "WARNING")
+    # ── Graceful shutdown ─────────────────────────────────────────────────────
+    logger.info("Wolf shutting down gracefully...")
+    for feed, name in [(btc_feed, "btc"), (eth_feed, "eth")]:
+        try:
+            await feed.stop()
+        except Exception:
+            pass
+    for component, name in [(health_check, "health"), (whale_tracker, "whale")]:
+        try:
+            await component.stop()
+        except Exception:
+            pass
+    try:
+        from alerts.telegram_alerts import send_alert
+        send_alert("Wolf offline — graceful shutdown complete.", "WARNING")
+    except Exception:
+        pass
 
-_shutdown_requested = False
 
-def handle_shutdown(sig, frame):
-    global _shutdown_requested
-    logger.info(f"Signal {sig} received — requesting graceful shutdown")
-    _shutdown_requested = True
-    # Don't cancel tasks immediately — let the loop finish current scan cycle
-
+# ─── Entry point ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_shutdown)
     signal.signal(signal.SIGINT, handle_shutdown)

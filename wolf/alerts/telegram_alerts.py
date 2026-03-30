@@ -6,6 +6,13 @@ INFO/WARNING alerts are suppressed in paper mode — only fire in live mode.
 """
 import requests
 import logging
+import os
+from dotenv import load_dotenv
+
+# Always load wolf .env so Telegram works even if config wasn't imported first
+_wolf_env = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+load_dotenv(_wolf_env, override=True)
+
 import config
 
 logger = logging.getLogger("wolf.alerts")
