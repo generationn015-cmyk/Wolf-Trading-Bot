@@ -1,171 +1,20 @@
 {
   "period_hours": 24,
-  "generated_at": 1774887646.4914937,
+  "generated_at": 1774887768.5489974,
   "overall": {
-    "total_trades": 71,
-    "wins": 53,
-    "losses": 18,
-    "win_rate": 0.7464788732394366,
-    "total_pnl": 46777.69,
-    "avg_pnl_per_trade": 658.84,
-    "best_trade": 2586.67,
-    "worst_trade": -80.0,
-    "avg_confidence": 0.782
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "win_rate": 0,
+    "total_pnl": 0,
+    "avg_pnl_per_trade": 0,
+    "best_trade": 0,
+    "worst_trade": 0,
+    "avg_confidence": 0
   },
-  "by_strategy": {
-    "copy_trading": {
-      "total": 16,
-      "wins": 14,
-      "win_rate": 0.875,
-      "pnl": 779.29,
-      "avg_pnl": 48.71,
-      "avg_confidence": 0.718,
-      "avg_price": 0.535,
-      "best": 240.0,
-      "worst": -80.0
-    },
-    "market_making": {
-      "total": 2,
-      "wins": 0,
-      "win_rate": 0.0,
-      "pnl": -160.0,
-      "avg_pnl": -80.0,
-      "avg_confidence": 0.78,
-      "avg_price": 0.495,
-      "best": -80.0,
-      "worst": -80.0
-    },
-    "timezone_arb": {
-      "total": 2,
-      "wins": 2,
-      "win_rate": 1.0,
-      "pnl": 1116.1,
-      "avg_pnl": 558.05,
-      "avg_confidence": 0.697,
-      "avg_price": 0.16,
-      "best": 855.67,
-      "worst": 260.43
-    },
-    "value_bet": {
-      "total": 51,
-      "wins": 37,
-      "win_rate": 0.725,
-      "pnl": 45042.29,
-      "avg_pnl": 883.18,
-      "avg_confidence": 0.805,
-      "avg_price": 0.11,
-      "best": 2586.67,
-      "worst": -80.0
-    }
-  },
-  "price_buckets": [
-    {
-      "range": "0.0\u20130.1",
-      "total": 31,
-      "win_rate": 0.871,
-      "pnl": 42155.82,
-      "flag": "\u2705 strong"
-    },
-    {
-      "range": "0.1\u20130.2",
-      "total": 15,
-      "win_rate": 0.467,
-      "pnl": 3139.43,
-      "flag": "\u26a0\ufe0f weak"
-    },
-    {
-      "range": "0.2\u20130.3",
-      "total": 5,
-      "win_rate": 0.6,
-      "pnl": 600.85,
-      "flag": ""
-    },
-    {
-      "range": "0.3\u20130.4",
-      "total": 4,
-      "win_rate": 0.75,
-      "pnl": 422.3,
-      "flag": ""
-    },
-    {
-      "range": "0.4\u20130.5",
-      "total": 4,
-      "win_rate": 0.5,
-      "pnl": 13.48,
-      "flag": ""
-    },
-    {
-      "range": "0.5\u20130.6",
-      "total": 6,
-      "win_rate": 0.833,
-      "pnl": 253.24,
-      "flag": "\u2705 strong"
-    },
-    {
-      "range": "0.6\u20130.7",
-      "total": 4,
-      "win_rate": 1.0,
-      "pnl": 168.42,
-      "flag": ""
-    },
-    {
-      "range": "0.7\u20130.8",
-      "total": 2,
-      "win_rate": 1.0,
-      "pnl": 24.15,
-      "flag": ""
-    }
-  ],
-  "hourly_performance": [
-    {
-      "hour_et": 1,
-      "total": 18,
-      "win_rate": 0.667,
-      "pnl": 11021.42
-    },
-    {
-      "hour_et": 2,
-      "total": 18,
-      "win_rate": 0.778,
-      "pnl": 13153.29
-    },
-    {
-      "hour_et": 3,
-      "total": 11,
-      "win_rate": 0.909,
-      "pnl": 4370.44
-    },
-    {
-      "hour_et": 4,
-      "total": 7,
-      "win_rate": 0.571,
-      "pnl": 747.79
-    },
-    {
-      "hour_et": 5,
-      "total": 7,
-      "win_rate": 0.857,
-      "pnl": 10677.8
-    },
-    {
-      "hour_et": 6,
-      "total": 6,
-      "win_rate": 0.833,
-      "pnl": 6650.09
-    },
-    {
-      "hour_et": 7,
-      "total": 3,
-      "win_rate": 0.333,
-      "pnl": 80.0
-    },
-    {
-      "hour_et": 23,
-      "total": 1,
-      "win_rate": 1.0,
-      "pnl": 76.86
-    }
-  ],
+  "by_strategy": {},
+  "price_buckets": [],
+  "hourly_performance": [],
   "worst_losses": [
     {
       "strategy": "value_bet",
@@ -309,11 +158,6 @@
     }
   ],
   "lessons": [
-    "\ud83d\udfe1 Overall WR 74.6% \u2014 on track. Monitor closely.",
-    "\ud83d\ude80 copy_trading: 87.5% WR \u2014 can slightly relax size limits to compound",
-    "\ud83d\udca1 Price range 0.0\u20130.1: 87.1% WR \u2014 high edge zone, prioritize",
-    "\ud83d\udeab Price range 0.1\u20130.2: 46.7% WR \u2014 block this range",
-    "\ud83d\udca1 Price range 0.5\u20130.6: 83.3% WR \u2014 high edge zone, prioritize",
-    "\u23f0 Best hour: 02:00 ET (77.8% WR, $+13153)"
+    "\ud83d\udd34 Overall WR 0.0% \u2014 below target. Tighten filters."
   ]
 }
