@@ -20,16 +20,16 @@ logger = logging.getLogger("wolf.alerts")
 
 # ── Jordan Belfort / Wolf of Wall Street quotes (WIN only) ───────────────────
 _BELFORT_QUOTES = [
-    "I'm not leaving! I'm not leaving!",
-    "The name of the game: move the money from your client's pocket into your pocket.",
-    "On a daily basis I consume enough drugs to sedate Manhattan, Long Island, and Queens for a month.",
-    "Let me tell you something. There's no nobility in poverty.",
-    "Act as if! Act as if you're a wealthy man, rich already, and you'll become that man.",
-    "I want you to deal with your problems by becoming rich.",
-    "Money is the oxygen of capitalism and I wanna breathe more than any man alive.",
-    "Winners use the word 'must'. Losers use the word 'should'.",
-    "Without action, the best intentions in the world are nothing more than that — intentions.",
+    "I'm not fucking leaving! The show goes on!",
     "I've been a poor man, and I've been a rich man. And I choose rich every fucking time.",
+    "Let me tell you something. There's no nobility in poverty.",
+    "On a daily basis I consume enough drugs to sedate Manhattan, Long Island, and Queens for a month.",
+    "I want you to back yourself into a corner. Give yourself no choice but to succeed.",
+    "Act as if! Act as if you're the most successful person in this room.",
+    "The easiest way to make money? Other people's money.",
+    "Nobody knows if a stock is gonna go up, down, sideways or in fucking circles.",
+    "The only thing stopping you from achieving your goals is the bullshit story you keep telling yourself.",
+    "Stratton Oakmont IS America.",
 ]
 
 import random as _random

@@ -101,6 +101,13 @@ class RiskEngine:
         fraction = max(fraction, 0.0)
 
         size = self.current_balance * fraction
+
+        # Hard caps — always enforced regardless of Kelly output
+        if not config.PAPER_MODE:
+            if size < config.MIN_POSITION_LIVE:
+                return 0.0  # Below minimum — skip trade entirely
+            size = min(size, config.MAX_POSITION_LIVE)
+
         return round(size, 2)
 
     def open_position(self, trade: TradeRecord):
