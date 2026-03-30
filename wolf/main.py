@@ -149,6 +149,29 @@ async def main():
     journal = TradeLogger()
     risk    = RiskEngine(starting_balance=1000.0)
     paper   = PaperTrader(starting_balance=1000.0)
+
+    # ── Restore open positions from DB into risk engine (prevents over-entry after restart) ──
+    import sqlite3 as _sqlite3
+    from risk_engine import TradeRecord as _TR
+    try:
+        _conn = _sqlite3.connect(config.DB_PATH)
+        _rows = _conn.execute(
+            "SELECT strategy, venue, market_id, side, size, entry_price, timestamp "
+            "FROM paper_trades WHERE resolved=0"
+        ).fetchall()
+        for _r in _rows:
+            _tr = _TR(strategy=_r[0], market_id=_r[2],
+                      side=_r[3], size=_r[4], entry_price=_r[5], timestamp=_r[6])
+            risk.open_positions.append(_tr)
+            paper.open_trades.append(  # also restore into PaperTrader
+                __import__('paper_mode', fromlist=['PaperTrade']).PaperTrade(
+                    timestamp=_r[6], strategy=_r[0], venue=_r[1],
+                    market_id=_r[2], side=_r[3], size=_r[4], entry_price=_r[5]))
+        _conn.close()
+        logger.info(f"Restored {len(_rows)} open positions from DB into risk engine")
+    except Exception as _e:
+        logger.warning(f"Could not restore open positions: {_e}")
+
     order_manager  = OrderManager(risk_engine=risk, paper_trader=paper, trade_logger=journal)
     health_check   = HealthCheck(trade_logger=journal)
     whale_tracker  = WhaleTracker()
