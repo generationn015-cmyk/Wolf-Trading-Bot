@@ -1,45 +1,47 @@
 """
 Wolf Trading Bot — Market Making Strategy
 Posts both sides of the book on active Polymarket markets.
-VPIN spike detection: go dark when informed money hunts.
-Scans live markets every cycle and generates signals.
+
+Key rules:
+- ONE position per market at a time (no re-entry until prior trade resolved)
+- 10-minute cooldown per market after any trade fires
+- Max 3 active MM markets simultaneously
+- VPIN spike check — go dark when informed money moves
+- Sim resolution: YES+NO paired — one wins, one loses (net = spread capture)
 """
+import json
 import time
 import logging
 import asyncio
-from dataclasses import dataclass
-import config
-from feeds.polymarket_feed import get_orderbook, get_market_volume, get_market_price
-from learning_engine import learning
-from feeds.polymarket_feed import POLYMARKET_DATA_URL
 import requests
+from dataclasses import dataclass, field
+import config
+from learning_engine import learning
 
 logger = logging.getLogger("wolf.strategy.market_making")
 
-@dataclass
-class MMPosition:
-    market_id: str
-    inventory: float = 0.0
-    total_spread_captured: float = 0.0
-    trades: int = 0
+COOLDOWN_SEC = 600       # 10 min between re-entry on same market
+MAX_ACTIVE   = 3         # max markets we hold simultaneously
 
-MARKET_KEYWORDS = {
-    "crypto":   ["BITCOIN", "BTC", "ETHEREUM", "ETH", "CRYPTO"],
-    "politics": ["TRUMP", "BIDEN", "PRESIDENT", "ELECTION", "CONGRESS"],
-    "sports":   ["NBA", "NFL", "MLB", "SOCCER", "CHAMPION"],
-    "macro":    ["FED", "RATE", "CPI", "INFLATION", "FOMC", "GDP", "OIL", "GOLD"],
-}
+
+@dataclass
+class MMSlot:
+    market_id: str
+    last_fired: float = 0.0      # timestamp of last signal fired
+    active_yes: bool  = False    # we have an open YES position
+    active_no:  bool  = False    # we have an open NO position
+
 
 class MarketMaker:
     def __init__(self):
-        self.positions: dict[str, MMPosition] = {}
+        self._slots:      dict[str, MMSlot] = {}
         self._market_cache: list[dict] = []
-        self._cache_ts: float = 0
-        self._cache_ttl: float = 120  # refresh markets every 2 min
+        self._cache_ts:   float = 0.0
+        self._cache_ttl:  float = 180    # refresh market list every 3 min
+
+    # ── Market list ───────────────────────────────────────────────────────────
 
     def _fetch_active_markets(self) -> list[dict]:
-        """Fetch active markets with real prices from Polymarket."""
-        import json as _json
         now = time.time()
         if now - self._cache_ts < self._cache_ttl and self._market_cache:
             return self._market_cache
@@ -47,173 +49,155 @@ class MarketMaker:
             resp = requests.get(
                 "https://gamma-api.polymarket.com/markets",
                 params={"active": True, "limit": 50, "closed": False},
-                timeout=10
+                timeout=10,
             )
-            if resp.ok:
-                markets = resp.json()
-                if isinstance(markets, list):
-                    filtered = []
-                    for m in markets:
-                        op = m.get("outcomePrices", [])
-                        if isinstance(op, str):
-                            try: op = _json.loads(op)
-                            except: op = []
-                        if op and len(op) >= 2:
-                            try:
-                                p0, p1 = float(op[0]), float(op[1])
-                                # Only include markets with real non-degenerate prices
-                                if 0.02 < p0 < 0.98 and 0.02 < p1 < 0.98:
-                                    m["_yes_price"] = p0
-                                    m["_no_price"] = p1
-                                    filtered.append(m)
-                            except (ValueError, TypeError):
-                                pass
-                    self._market_cache = filtered[:20]  # top 20
-                    self._cache_ts = now
-                    logger.info(f"Market maker loaded {len(self._market_cache)} markets")
-                    return self._market_cache
+            if not resp.ok:
+                return self._market_cache
+            markets = resp.json()
+            if not isinstance(markets, list):
+                return self._market_cache
+
+            filtered = []
+            for m in markets:
+                op = m.get("outcomePrices", [])
+                if isinstance(op, str):
+                    try:    op = json.loads(op)
+                    except: op = []
+                if not op or len(op) < 2:
+                    continue
+                try:
+                    p0, p1 = float(op[0]), float(op[1])
+                except (ValueError, TypeError):
+                    continue
+                # Only trade markets with meaningful liquidity on BOTH sides
+                if not (0.05 < p0 < 0.95 and 0.05 < p1 < 0.95):
+                    continue
+                vol = float(m.get("volumeNum", 0) or 0)
+                if vol < config.MIN_MARKET_VOLUME:
+                    continue
+                m["_yes_price"] = p0
+                m["_no_price"]  = p1
+                m["_volume"]    = vol
+                filtered.append(m)
+
+            self._market_cache = filtered[:20]
+            self._cache_ts = now
+            logger.info(f"Market maker loaded {len(self._market_cache)} markets")
         except Exception as e:
-            logger.warning(f"Failed to fetch MM markets: {e}")
+            logger.warning(f"MM market fetch failed: {e}")
         return self._market_cache
 
-    def _estimate_vpin(self, orderbook: dict) -> float:
-        bids = orderbook.get("bids", [])
-        asks = orderbook.get("asks", [])
-        if not bids or not asks:
-            return 0.0
-        bid_vol = sum(s for _, s in bids[:5])
-        ask_vol = sum(s for _, s in asks[:5])
-        total = bid_vol + ask_vol
-        if total == 0:
-            return 0.0
-        return abs(bid_vol - ask_vol) / total
+    # ── VPIN ─────────────────────────────────────────────────────────────────
+
+    def _vpin(self, bid_size: float, ask_size: float) -> float:
+        total = bid_size + ask_size
+        return abs(bid_size - ask_size) / total if total > 0 else 0.0
+
+    # ── Main scan ─────────────────────────────────────────────────────────────
 
     async def scan(self) -> list[dict]:
-        """Scan active markets and generate market making signals."""
         signals = []
         markets = self._fetch_active_markets()
+        now = time.time()
+
+        # How many markets do we already have active positions on?
+        active_count = sum(
+            1 for s in self._slots.values()
+            if s.active_yes or s.active_no
+        )
 
         for market in markets:
-            try:
-                market_id = market.get("conditionId") or market.get("id", "")
-                if not market_id:
-                    continue
+            if len(signals) > 0:
+                break  # One new market per scan cycle — prevents flooding
 
-                # Use token IDs if available for CLOB orderbook
-                clob_ids = market.get("clobTokenIds", "")
-                if isinstance(clob_ids, str):
-                    try:
-                        import json
-                        clob_ids = json.loads(clob_ids)
-                    except Exception:
-                        clob_ids = []
+            market_id = market.get("conditionId") or market.get("id", "")
+            if not market_id:
+                continue
 
-                # Use pre-validated prices from _fetch_active_markets
-                yes_price = market.get("_yes_price", 0.5)
-                no_price = market.get("_no_price", 0.5)
+            slot = self._slots.setdefault(market_id, MMSlot(market_id=market_id))
 
-                # Build synthetic orderbook with realistic tight spread (2-4%)
-                spread_estimate = 0.04
-                best_bid = max(0.01, yes_price - spread_estimate / 2)
-                best_ask = min(0.99, yes_price + spread_estimate / 2)
+            # Skip if still cooling down
+            if now - slot.last_fired < COOLDOWN_SEC:
+                continue
 
-                orderbook = {
-                    "bids": [(best_bid, 500)],
-                    "asks": [(best_ask, 500)],
-                }
+            # Skip if already have a position here or at capacity
+            if slot.active_yes or slot.active_no:
+                continue
+            if active_count >= MAX_ACTIVE:
+                continue
 
-                volume = float(market.get("volumeNum", 0) or 0)
-                new_signals = self.generate_mm_signal(
-                    market_id=market_id,
-                    orderbook=orderbook,
-                    volume=volume,
-                    venue="polymarket",
-                )
-                signals.extend(new_signals)
+            yes_price = market["_yes_price"]
+            no_price  = market["_no_price"]
+            volume    = market["_volume"]
 
-                # Max 2 markets per scan cycle — enough volume without flooding
-                if len(signals) >= 4:
-                    break
+            # Spread we'd capture posting both sides tight
+            # Natural spread on Polymarket is typically 2–8 cents
+            natural_spread = abs(yes_price - (1.0 - no_price))
+            if natural_spread < 0.02:
+                continue  # Too tight — no edge
 
-            except Exception as e:
-                logger.debug(f"MM scan error on market: {e}")
+            # Synthetic VPIN from price imbalance
+            vpin = self._vpin(yes_price * 1000, no_price * 1000)
+            if vpin > config.VPIN_SPIKE_THRESHOLD:
+                logger.debug(f"MM VPIN spike {market_id[:16]}: {vpin:.3f} — skipping")
+                continue
 
-        return signals
+            # Our posted prices sit inside the spread
+            our_bid = round(yes_price - 0.005, 3)   # slightly below current YES
+            our_ask = round(yes_price + 0.005, 3)   # slightly above current YES
+            captured = our_ask - our_bid             # = 0.01 baseline
 
-    def generate_mm_signal(self, market_id: str, orderbook: dict,
-                            volume: float, venue: str = "polymarket") -> list[dict]:
-        signals = []
+            # Confidence based on spread quality + volume
+            vol_bonus = min(0.05, volume / 1_000_000 * 0.05)
+            confidence = min(0.78, 0.60 + natural_spread * 3 + vol_bonus)
 
-        bids = orderbook.get("bids", [])
-        asks = orderbook.get("asks", [])
-        if not bids or not asks:
-            return signals
+            if confidence < 0.60:
+                continue
 
-        if volume < config.MIN_MARKET_VOLUME:
-            return signals
+            # Mark as active before appending so active_count stays correct
+            slot.last_fired = now
+            slot.active_yes = True
+            slot.active_no  = True
+            active_count   += 1
 
-        best_bid = bids[0][0] if bids else 0.45
-        best_ask = asks[0][0] if asks else 0.55
-        spread = best_ask - best_bid
-
-        if spread < 0.02:
-            return signals
-
-        vpin = self._estimate_vpin(orderbook)
-        if vpin > config.VPIN_SPIKE_THRESHOLD:
-            logger.debug(f"VPIN spike {market_id}: {vpin:.3f} — skipping")
-            return signals
-
-        pos = self.positions.get(market_id, MMPosition(market_id=market_id))
-        if abs(pos.inventory) > 10:
-            if pos.inventory > 0:
-                best_ask -= 0.01
-            else:
-                best_bid += 0.01
-
-        our_bid = best_bid + 0.01
-        our_ask = best_ask - 0.01
-        captured_spread = our_ask - our_bid
-
-        if captured_spread <= 0:
-            return signals
-
-        # MM confidence = spread quality score. Not directional — it's about
-        # capturing the bid/ask gap. Base 0.60 + spread bonus.
-        confidence = min(0.80, 0.60 + captured_spread * 4)
-
-        # MM has its own lower floor — never penalized by learning engine until 10+ trades
-        MM_MIN_CONFIDENCE = 0.58  # Fixed floor for MM — learning engine adjusts copy/arb only
-        if confidence >= MM_MIN_CONFIDENCE:
             signals.append({
-                "strategy": "market_making",
-                "venue": venue,
-                "market_id": market_id,
-                "side": "YES",
-                "order_type": "limit",
+                "strategy":    "market_making",
+                "venue":       "polymarket",
+                "market_id":   market_id,
+                "side":        "YES",
+                "order_type":  "limit",
                 "limit_price": our_bid,
-                "edge": captured_spread / 2,
-                "confidence": confidence,
                 "entry_price": our_bid,
-                "volume": volume,
-                "vpin": vpin,
-                "timestamp": time.time(),
-                "reason": f"MM bid {our_bid:.3f} / ask {our_ask:.3f} spread {captured_spread:.3f} VPIN {vpin:.3f}",
+                "edge":        captured / 2,
+                "confidence":  confidence,
+                "volume":      volume,
+                "vpin":        vpin,
+                "timestamp":   now,
+                "reason":      (
+                    f"MM {market_id[:16]}… spread={natural_spread:.3f} "
+                    f"vol=${volume:,.0f} VPIN={vpin:.3f}"
+                ),
             })
             signals.append({
-                "strategy": "market_making",
-                "venue": venue,
-                "market_id": market_id,
-                "side": "NO",
-                "order_type": "limit",
-                "limit_price": 1.0 - our_ask,
-                "edge": captured_spread / 2,
-                "confidence": confidence,
-                "entry_price": 1.0 - our_ask,
-                "volume": volume,
-                "vpin": vpin,
-                "timestamp": time.time(),
-                "reason": f"MM both sides — VPIN {vpin:.3f}",
+                "strategy":    "market_making",
+                "venue":       "polymarket",
+                "market_id":   market_id,
+                "side":        "NO",
+                "order_type":  "limit",
+                "limit_price": round(1.0 - our_ask, 3),
+                "entry_price": round(1.0 - our_ask, 3),
+                "edge":        captured / 2,
+                "confidence":  confidence,
+                "volume":      volume,
+                "vpin":        vpin,
+                "timestamp":   now,
+                "reason":      f"MM both sides — paired hedge",
             })
 
         return signals
+
+    def on_trade_resolved(self, market_id: str):
+        """Call when a MM trade resolves so the slot can re-open."""
+        if market_id in self._slots:
+            self._slots[market_id].active_yes = False
+            self._slots[market_id].active_no  = False

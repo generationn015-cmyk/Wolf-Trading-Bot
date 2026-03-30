@@ -52,8 +52,10 @@ def _resolve_paper_trades(paper, journal):
 
         strategy = trade.strategy
         if strategy == "market_making":
-            # Spread capture — not directional. 72% reflects typical MM edge.
-            win_prob = 0.72
+            # MM trades are paired (YES+NO on same market).
+            # Both can't win — one wins at ~1.0, one loses at ~0.0.
+            # Net effect: spread captured. Simulate 50% each side (realistic).
+            win_prob = 0.50
         elif strategy == "copy_trading":
             # Top leaderboard traders historically win 70-88%
             win_prob = min(0.88, max(0.70, trade.entry_price + 0.18))
@@ -68,6 +70,9 @@ def _resolve_paper_trades(paper, journal):
         )
         result = paper.resolve_trade(trade.market_id, outcome)
         if result:
+            # Notify MM so its slot opens up for re-entry
+            if trade.strategy == "market_making":
+                market_maker.on_trade_resolved(trade.market_id)
             journal.log_paper_trade({
                 "timestamp": now,
                 "strategy": trade.strategy,
