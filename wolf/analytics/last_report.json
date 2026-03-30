@@ -1,26 +1,26 @@
 {
   "period_hours": 24,
-  "generated_at": 1774840532.6340005,
+  "generated_at": 1774840829.3436615,
   "overall": {
-    "total_trades": 118,
-    "wins": 86,
+    "total_trades": 117,
+    "wins": 85,
     "losses": 32,
-    "win_rate": 0.7288135593220338,
-    "total_pnl": 1689.13,
-    "avg_pnl_per_trade": 14.31,
+    "win_rate": 0.7264957264957265,
+    "total_pnl": 1666.73,
+    "avg_pnl_per_trade": 14.25,
     "best_trade": 72.0,
     "worst_trade": -74.24,
     "avg_confidence": 0
   },
   "by_strategy": {
     "copy_trading": {
-      "total": 114,
-      "wins": 84,
-      "win_rate": 0.737,
-      "pnl": 1741.37,
-      "avg_pnl": 15.28,
+      "total": 113,
+      "wins": 83,
+      "win_rate": 0.735,
+      "pnl": 1718.97,
+      "avg_pnl": 15.21,
       "avg_confidence": 0,
-      "avg_price": 0.547,
+      "avg_price": 0.545,
       "best": 72.0,
       "worst": -74.24
     },
@@ -74,9 +74,9 @@
     },
     {
       "range": "0.7\u20130.8",
-      "total": 19,
-      "win_rate": 0.947,
-      "pnl": 327.52,
+      "total": 18,
+      "win_rate": 0.944,
+      "pnl": 305.12,
       "flag": "\u2705 strong"
     },
     {
@@ -109,9 +109,9 @@
     },
     {
       "hour_et": 23,
-      "total": 33,
-      "win_rate": 0.727,
-      "pnl": 392.2
+      "total": 32,
+      "win_rate": 0.719,
+      "pnl": 369.8
     }
   ],
   "worst_losses": [
@@ -259,14 +259,14 @@
   "wallet_performance": [
     {
       "wallet": null,
-      "total": 114,
-      "win_rate": 0.737,
-      "pnl": 1741.37
+      "total": 113,
+      "win_rate": 0.735,
+      "pnl": 1718.97
     }
   ],
   "lessons": [
-    "\ud83d\udfe1 Overall WR 72.9% \u2014 on track. Monitor closely.",
-    "\ud83d\udca1 Price range 0.7\u20130.8: 94.7% WR \u2014 high edge zone, prioritize",
+    "\ud83d\udfe1 Overall WR 72.6% \u2014 on track. Monitor closely.",
+    "\ud83d\udca1 Price range 0.7\u20130.8: 94.4% WR \u2014 high edge zone, prioritize",
     "\ud83d\udca1 Price range 0.8\u20130.9: 100.0% WR \u2014 high edge zone, prioritize",
     "\ud83d\udca1 Price range 0.9\u20131.0: 83.3% WR \u2014 high edge zone, prioritize",
     "\u23f0 Best hour: 22:00 ET (76.9% WR, $+1122)"

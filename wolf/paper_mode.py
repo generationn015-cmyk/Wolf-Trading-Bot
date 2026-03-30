@@ -62,11 +62,15 @@ class PaperTrader:
                     if t.pnl is not None:
                         self.balance += t.pnl
 
-                # Load open trades so the resolver can settle them
+                # Load open trades — skip any market already resolved (avoid lifecycle dupes)
+                resolved_ids = {(r[0], r[2], r[3]) for r in rows}  # (strategy, market_id, side)
                 open_rows = conn.execute(
                     "SELECT strategy, venue, market_id, side, size, entry_price, timestamp "
                     "FROM paper_trades WHERE resolved=0"
                 ).fetchall()
+                # Filter out markets that already have a resolved entry
+                open_rows = [r for r in open_rows
+                             if (r[0], r[2], r[3]) not in resolved_ids]
                 for row in open_rows:
                     t = PaperTrade(
                         timestamp=row[6], strategy=row[0], venue=row[1],
