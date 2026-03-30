@@ -194,6 +194,7 @@ async def main():
     last_resolve = 0.0
     last_status  = 0.0
     last_report  = 0.0
+    last_morning_report = 0.0  # 6AM daily report
     gate_alerted = False    # alert Jefe once when milestone hit — never halt
 
     try:
@@ -376,7 +377,23 @@ async def main():
             except Exception as e:
                 logger.warning(f"Learning engine error: {e}")
 
-            # ── Hourly analytics report ──────────────────────────────────────
+            # ── 6AM daily morning report ─────────────────────────────────────
+            import datetime as _dt
+            _now_et = _dt.datetime.now()  # server is ET
+            _is_6am = (_now_et.hour == 6 and _now_et.minute < 2)
+            if _is_6am and now - last_morning_report > 3600:
+                last_morning_report = now
+                try:
+                    import subprocess as _sp
+                    _sp.Popen(
+                        ["python3", "scripts/morning_report.py"],
+                        cwd="/data/.openclaw/workspace/wolf"
+                    )
+                    logger.info("📋 6AM morning report triggered")
+                except Exception as _e:
+                    logger.warning(f"Morning report trigger failed: {_e}")
+
+            # ── Hourly analytics report ──────────────────────────────────────────
             if now - last_report > REPORT_INTERVAL:
                 last_report = now
                 try:
