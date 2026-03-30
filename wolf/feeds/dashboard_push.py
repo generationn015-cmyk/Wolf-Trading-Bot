@@ -1,270 +1,228 @@
 """
-Dashboard webhook pusher — sends Wolf state to wolfofallstreets.xyz every 30s
-and on every trade entry/exit.
+Wolf → wolfofallstreets.xyz dashboard pusher.
 
-Site expects POST /api/wolf/webhook with header x-wolf-api-key: <key>
-Payload: full state matching the site's /api/wolf/state schema.
+Pushes Wolf state to individual REST endpoints every PUSH_INTERVAL seconds.
+Non-blocking: failures are logged silently and never affect trading.
+
+Endpoints used:
+  POST /api/wolf/status       — {status, message}
+  POST /api/wolf/performance  — {dailyPnl, weeklyPnl, monthlyPnl, totalTrades,
+                                  winRate, winStreak, bestStreak, totalProfit}
+  POST /api/wolf/trades       — one POST per trade (upsert by id)
+  POST /api/wolf/market       — market data updates (BTC, ETH prices)
 """
-import os
-import time
 import logging
-import sqlite3
-import json
+import time
 import requests
-from datetime import datetime, timezone, timedelta
+import sqlite3
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
 
 logger = logging.getLogger("wolf.feeds.dashboard")
 
-DASHBOARD_URL = "https://wolfofallstreets.xyz/api/wolf/webhook"
-PUSH_INTERVAL = 30  # seconds between background pushes
-_last_push = 0.0
+BASE_URL       = "https://wolfofallstreets.xyz/api/wolf"
+PUSH_INTERVAL  = 30   # seconds between full syncs
+_last_push     = 0.0
+_pushed_trade_ids: set = set()
+
+def _headers() -> dict:
+    return {
+        "Content-Type": "application/json",
+        "x-wolf-api-key": config.WOLF_DASHBOARD_API_KEY,
+    }
+
+def _post(endpoint: str, payload: dict, timeout: int = 6) -> bool:
+    """POST to a dashboard endpoint. Returns True on success."""
+    if not config.WOLF_DASHBOARD_API_KEY:
+        return False
+    try:
+        r = requests.post(
+            f"{BASE_URL}/{endpoint}",
+            json=payload,
+            headers=_headers(),
+            timeout=timeout,
+        )
+        if r.ok and r.json().get("success"):
+            return True
+        logger.debug(f"Dashboard {endpoint} rejected: {r.text[:120]}")
+        return False
+    except Exception as e:
+        logger.debug(f"Dashboard push error ({endpoint}): {e}")
+        return False
 
 
-def _get_api_key() -> str:
-    import config
-    return getattr(config, "WOLF_DASHBOARD_API_KEY", os.getenv("WOLF_DASHBOARD_API_KEY", ""))
+def push_status(open_positions: int, mode: str = "PAPER") -> bool:
+    return _post("status", {
+        "status": "online",
+        "message": f"{mode} — {open_positions} open position{'s' if open_positions != 1 else ''}",
+    })
 
 
-def build_state_payload() -> dict:
-    """Build the full dashboard state from Wolf's DB and runtime."""
-    import config
+def push_performance(stats: dict) -> bool:
+    return _post("performance", {
+        "dailyPnl":        round(float(stats.get("daily_pnl", 0) or 0), 2),
+        "weeklyPnl":       round(float(stats.get("weekly_pnl", 0) or 0), 2),
+        "monthlyPnl":      round(float(stats.get("total_pnl", 0) or 0), 2),
+        "totalTrades":     int(stats.get("total_trades", 0) or 0),
+        "winRate":         round(float(stats.get("win_rate", 0) or 0) * 100, 1),
+        "winStreak":       int(stats.get("win_streak", 0) or 0),
+        "bestStreak":      int(stats.get("best_streak", 0) or 0),
+        "totalProfit":     round(float(stats.get("total_pnl", 0) or 0), 2),
+    })
+
+
+def push_trade(trade_id: str, symbol: str, side: str, strategy: str,
+               entry_price: float, quantity: float, status: str,
+               pnl: float = 0.0, pnl_percent: float = 0.0,
+               entry_time: int = 0, exit_time: int = 0,
+               exit_price: float = 0.0) -> bool:
+    payload = {
+        "id":          trade_id,
+        "symbol":      symbol,
+        "side":        side,
+        "strategy":    strategy,
+        "entryPrice":  round(entry_price, 4),
+        "exitPrice":   round(exit_price, 4) if exit_price else 0,
+        "quantity":    round(quantity, 2),
+        "status":      status,
+        "pnl":         round(pnl, 4),
+        "pnlPercent":  round(pnl_percent, 2),
+        "entryTime":   entry_time,
+        "exitTime":    exit_time if exit_time else 0,
+    }
+    ok = _post("trades", payload)
+    if ok:
+        _pushed_trade_ids.add(trade_id)
+    return ok
+
+
+def push_market_data(btc_price: float = 0.0, eth_price: float = 0.0) -> bool:
+    """Push BTC/ETH prices to market endpoint."""
+    if not (btc_price or eth_price):
+        return False
+    try:
+        for sym, price in [("BTC", btc_price), ("ETH", eth_price)]:
+            if price > 0:
+                _post("market", {
+                    "symbol": sym,
+                    "price":  round(price, 2),
+                    "change": 0,
+                    "changePercent": 0,
+                })
+        return True
+    except Exception as e:
+        logger.debug(f"Market data push error: {e}")
+        return False
+
+
+def push_to_dashboard(force: bool = False) -> bool:
+    """
+    Full dashboard sync. Called every N seconds from main loop.
+    Pushes status, performance, all trades, and market prices.
+    """
+    global _last_push
+    now = time.time()
+    if not force and (now - _last_push) < PUSH_INTERVAL:
+        return False
+    if not config.WOLF_DASHBOARD_API_KEY:
+        return False
+
+    _last_push = now
+    ok_count = 0
 
     try:
         conn = sqlite3.connect(config.DB_PATH)
         c = conn.cursor()
 
-        # ── Performance ──────────────────────────────────────────────────────
-        now = time.time()
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).timestamp()
-        week_start = (datetime.now(timezone.utc) - timedelta(days=7)).timestamp()
-
-        total_row = c.execute(
+        # Stats (real trades only — simulated=0)
+        row = c.execute(
             "SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), SUM(pnl) "
             "FROM paper_trades WHERE resolved=1 AND simulated=0"
         ).fetchone()
-        total_trades = total_row[0] or 0
-        total_wins = total_row[1] or 0
-        total_pnl = float(total_row[2] or 0)
-        win_rate = round((total_wins / total_trades * 100) if total_trades > 0 else 0, 1)
+        total, wins, pnl = int(row[0] or 0), int(row[1] or 0), float(row[2] or 0)
+        win_rate = (wins / total * 100) if total else 0.0
+        open_count = c.execute(
+            "SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0"
+        ).fetchone()[0]
 
-        daily_pnl = float(c.execute(
-            "SELECT COALESCE(SUM(pnl),0) FROM paper_trades WHERE resolved=1 AND simulated=0 AND timestamp>?",
-            (today_start,)
-        ).fetchone()[0])
+        # Status
+        mode = "PAPER" if config.PAPER_MODE else "LIVE"
+        if push_status(open_count, mode):
+            ok_count += 1
 
-        weekly_pnl = float(c.execute(
-            "SELECT COALESCE(SUM(pnl),0) FROM paper_trades WHERE resolved=1 AND simulated=0 AND timestamp>?",
-            (week_start,)
-        ).fetchone()[0])
+        # Performance
+        if push_performance({
+            "total_trades": total,
+            "win_rate": win_rate / 100,
+            "total_pnl": pnl,
+            "win_streak": 0,
+            "best_streak": 0,
+        }):
+            ok_count += 1
 
-        # Win streak
-        recent = c.execute(
-            "SELECT won FROM paper_trades WHERE resolved=1 AND simulated=0 ORDER BY timestamp DESC LIMIT 20"
+        # All open positions
+        open_trades = c.execute(
+            "SELECT id, strategy, market_id, side, size, entry_price, timestamp "
+            "FROM paper_trades WHERE resolved=0 AND simulated=0"
         ).fetchall()
-        streak = 0
-        best_streak = 0
-        cur_streak = 0
-        for (won,) in recent:
-            if won:
-                cur_streak += 1
-                streak = cur_streak
-                best_streak = max(best_streak, cur_streak)
-            else:
-                cur_streak = 0
+        for row in open_trades:
+            tid, strat, market, side, size, ep, ts = row
+            trade_id = f"pt_{tid}"
+            # Estimate current P&L (mark-to-market not available, show 0 until resolved)
+            push_trade(
+                trade_id=trade_id,
+                symbol=market[:40],
+                side=side,
+                strategy=strat,
+                entry_price=float(ep),
+                quantity=float(size or 0),
+                status="open",
+                entry_time=int(float(ts) * 1000),
+            )
+            ok_count += 1
 
-        # ── Open trades ────────────────────────────────────────────────────────
-        open_rows = c.execute(
-            "SELECT id, strategy, market_id, side, entry_price, size, timestamp, reason "
-            "FROM paper_trades WHERE resolved=0 ORDER BY timestamp DESC LIMIT 20"
-        ).fetchall()
-
-        open_trades = []
-        for row in open_rows:
-            tid, strat, mid, side, ep, size, ts, reason = row
-            market_name = (reason or mid or "").split("|")[-1].strip()[:60]
-            open_trades.append({
-                "id": str(tid),
-                "symbol": market_name,
-                "side": side,
-                "entryPrice": round(float(ep), 4),
-                "exitPrice": None,
-                "quantity": round(float(size or 0), 2),
-                "status": "open",
-                "pnl": None,
-                "pnlPercent": None,
-                "entryTime": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
-                "exitTime": None,
-                "strategy": strat,
-            })
-
-        # ── Recent resolved ────────────────────────────────────────────────────
-        resolved_rows = c.execute(
-            "SELECT id, strategy, market_id, side, entry_price, size, pnl, won, timestamp, reason "
-            "FROM paper_trades WHERE resolved=1 AND simulated=0 ORDER BY timestamp DESC LIMIT 30"
-        ).fetchall()
-
-        resolved_trades = []
-        for row in resolved_rows:
-            tid, strat, mid, side, ep, size, pnl, won, ts, reason = row
-            market_name = (reason or mid or "").split("|")[-1].strip()[:60]
-            ep_f = float(ep or 0)
-            pnl_f = float(pnl or 0)
-            exit_price = 1.0 if won else 0.0
-            pnl_pct = round((pnl_f / (float(size or 1))) * 100, 1) if size else 0
-            resolved_trades.append({
-                "id": str(tid),
-                "symbol": market_name,
-                "side": side,
-                "entryPrice": round(ep_f, 4),
-                "exitPrice": exit_price,
-                "quantity": round(float(size or 0), 2),
-                "status": "won" if won else "lost",
-                "pnl": round(pnl_f, 2),
-                "pnlPercent": pnl_pct,
-                "entryTime": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
-                "exitTime": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
-                "strategy": strat,
-            })
-
-        # ── PnL chart data (daily) ─────────────────────────────────────────────
-        pnl_rows = c.execute(
-            "SELECT date(datetime(timestamp,'unixepoch')), SUM(pnl), COUNT(*) "
+        # Resolved trades (last 20)
+        closed_trades = c.execute(
+            "SELECT id, strategy, market_id, side, size, entry_price, "
+            "exit_price, pnl, timestamp, won "
             "FROM paper_trades WHERE resolved=1 AND simulated=0 "
-            "GROUP BY date(datetime(timestamp,'unixepoch')) ORDER BY 1"
+            "ORDER BY timestamp DESC LIMIT 20"
         ).fetchall()
+        for row in closed_trades:
+            tid, strat, market, side, size, ep, xp, pnl_t, ts, won = row
+            ep, xp, pnl_t = float(ep), float(xp or 0), float(pnl_t or 0)
+            size = float(size or 0)
+            pnl_pct = (pnl_t / size * 100) if size else 0
+            push_trade(
+                trade_id=f"pt_{tid}",
+                symbol=market[:40],
+                side=side,
+                strategy=strat,
+                entry_price=ep,
+                exit_price=xp,
+                quantity=size,
+                status="won" if won else "lost",
+                pnl=pnl_t,
+                pnl_percent=pnl_pct,
+                entry_time=int(float(ts) * 1000),
+            )
+            ok_count += 1
 
-        cumulative = 0.0
-        pnl_data = []
-        for date_str, day_pnl, day_trades in pnl_rows:
-            day_pnl = float(day_pnl or 0)
-            cumulative += day_pnl
-            pnl_data.append({
-                "date": date_str,
-                "pnl": round(day_pnl, 2),
-                "cumulative": round(cumulative, 2),
-                "trades": day_trades,
-            })
-
-        # ── Strategy breakdown ─────────────────────────────────────────────────
-        strat_rows = c.execute(
-            "SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), SUM(pnl) "
-            "FROM paper_trades WHERE resolved=1 AND simulated=0 GROUP BY strategy"
-        ).fetchall()
-
-        strategy_breakdown = {}
-        for strat, cnt, wins, spnl in strat_rows:
-            strategy_breakdown[strat] = {
-                "trades": cnt,
-                "winRate": round((wins / cnt * 100) if cnt > 0 else 0, 1),
-                "pnl": round(float(spnl or 0), 2),
-            }
+        # Market prices
+        try:
+            from feeds.binance_feed import btc_feed, eth_feed
+            push_market_data(btc_feed.get_price(), eth_feed.get_price())
+        except Exception:
+            pass
 
         conn.close()
 
-        # ── D-Dub Index (synthetic signal strength) ────────────────────────────
-        # Based on recent win rate momentum — 0-100 scale
-        recent_10 = sum(1 for (won,) in recent[:10] if won)
-        ddub_value = round(50 + (recent_10 / 10 - 0.5) * 40 if recent else 50, 1)
-        ddub_signal = "BUY" if ddub_value >= 65 else "SELL" if ddub_value <= 45 else "HOLD"
-        ddub_data = [{
-            "time": int(time.time() - i * 300),
-            "value": max(10, min(90, ddub_value + (i % 3 - 1) * 3)),
-            "signal": ddub_signal,
-        } for i in range(24, -1, -1)]
-
-        # ── Activity log ──────────────────────────────────────────────────────
-        activity_logs = []
-        for i, row in enumerate(resolved_rows[:10]):
-            tid, strat, mid, side, ep, size, pnl_v, won, ts, reason = row
-            pnl_v = float(pnl_v or 0)
-            market_name = (reason or "").split("|")[-1].strip()[:50]
-            activity_logs.append({
-                "id": str(tid),
-                "type": "WIN" if won else "LOSS",
-                "message": f"{strat.replace('_',' ').title()} {side} — {market_name}",
-                "timestamp": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
-                "priority": "high" if abs(pnl_v) > 50 else "normal",
-            })
-
-        # ── Market data (BTC/ETH) ──────────────────────────────────────────────
-        try:
-            btc_r = requests.get("https://api.binance.us/api/v3/ticker/24hr?symbol=BTCUSDT", timeout=3)
-            eth_r = requests.get("https://api.binance.us/api/v3/ticker/24hr?symbol=ETHUSDT", timeout=3)
-            btc_d = btc_r.json() if btc_r.ok else {}
-            eth_d = eth_r.json() if eth_r.ok else {}
-            market_data = [
-                {"symbol": "BTC", "price": float(btc_d.get("lastPrice", 0)), "change": float(btc_d.get("priceChange", 0)), "changePercent": float(btc_d.get("priceChangePercent", 0))},
-                {"symbol": "ETH", "price": float(eth_d.get("lastPrice", 0)), "change": float(eth_d.get("priceChange", 0)), "changePercent": float(eth_d.get("priceChangePercent", 0))},
-            ]
-        except Exception:
-            market_data = []
-
-        # ── Learning progress ──────────────────────────────────────────────────
-        learning_progress = min(100, round(total_trades / 100 * 100, 0))
-        learning = {"progress": int(learning_progress)}
-
-        # ── Final payload ──────────────────────────────────────────────────────
-        mode = "PAPER" if config.PAPER_MODE else "LIVE"
-        return {
-            "status": {
-                "status": "online",
-                "message": f"{mode} — {len(open_trades)} open / {total_trades} resolved",
-                "currentPosition": len(open_trades),
-                "ddubSignal": {"value": ddub_value, "direction": ddub_signal},
-                "paperMode": config.PAPER_MODE,
-            },
-            "performance": {
-                "winRate": win_rate,
-                "totalTrades": total_trades,
-                "totalProfit": round(total_pnl, 2),
-                "dailyPnl": round(daily_pnl, 2),
-                "weeklyPnl": round(weekly_pnl, 2),
-                "winStreak": streak,
-                "bestStreak": best_streak,
-                "strategyBreakdown": strategy_breakdown,
-            },
-            "trades": open_trades + resolved_trades[:20],
-            "pnlData": pnl_data,
-            "ddubData": ddub_data,
-            "activityLogs": activity_logs,
-            "marketData": market_data,
-            "learning": learning,
-            "lastUpdated": datetime.now(timezone.utc).isoformat(),
-        }
-
     except Exception as e:
-        logger.error(f"Dashboard payload build error: {e}")
-        return {}
-
-
-def push_to_dashboard(force: bool = False) -> bool:
-    """Push current Wolf state to the dashboard. Returns True on success."""
-    global _last_push
-    api_key = _get_api_key()
-    if not api_key:
-        return False  # Not configured — silent skip
-
-    now = time.time()
-    if not force and (now - _last_push) < PUSH_INTERVAL:
+        logger.warning(f"Dashboard push failed: {e}")
         return False
 
-    try:
-        payload = build_state_payload()
-        if not payload:
-            return False
-        resp = requests.post(
-            DASHBOARD_URL,
-            json={"data": payload},
-            headers={"x-wolf-api-key": api_key, "Content-Type": "application/json"},
-            timeout=8,
-        )
-        if resp.ok:
-            _last_push = now
-            logger.debug(f"Dashboard push OK ({resp.status_code})")
-            return True
-        else:
-            logger.warning(f"Dashboard push failed: {resp.status_code} {resp.text[:100]}")
-            return False
-    except Exception as e:
-        logger.debug(f"Dashboard push error: {e}")
-        return False
+    logger.debug(f"Dashboard sync complete: {ok_count} updates pushed")
+    return ok_count > 0

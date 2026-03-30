@@ -51,7 +51,8 @@ MAX_POSITION_LIVE           = float(os.getenv("MAX_POSITION_LIVE", "8.0"))   # H
 MIN_POSITION_LIVE           = float(os.getenv("MIN_POSITION_LIVE", "1.0"))   # Min $1 (Polymarket minimum)
 DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt ($20 on live)
 KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch ($40 loss → full stop)
-MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))   # Paper: 8 concurrent; drop to 5 for live
+MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))   # live hard cap
+MAX_OPEN_POSITIONS_PAPER    = int(os.getenv("MAX_OPEN_POSITIONS_PAPER", "16"))  # paper: wider net
 VALUE_BET_MAX_DAYS          = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))  # Skip markets resolving >14 days out
 MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "24"))     # Force-exit any position not resolved after 24h — keeps Wolf cycling daily
 MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))
@@ -92,3 +93,6 @@ def validate():
     for w in warnings:
         print(f"  ⚠️  CONFIG WARNING: {w}")
     return warnings
+
+# Dashboard
+WOLF_DASHBOARD_API_KEY = os.getenv("WOLF_DASHBOARD_API_KEY", "")

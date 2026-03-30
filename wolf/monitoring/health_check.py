@@ -55,7 +55,7 @@ class HealthCheck:
         try:
             from feeds.binance_feed import btc_feed
             age_ms = btc_feed.get_price_age_ms()
-            results["binance_ok"] = age_ms < 15000  # Fresh within 15s (REST polling mode)
+            results["binance_ok"] = age_ms < 30000  # 30s window — REST polls every 2s, allows startup lag
             if not results["binance_ok"]:
                 send_alert(f"Binance feed stale: {age_ms:.0f}ms", "WARNING")
         except Exception as e:
@@ -105,10 +105,11 @@ class HealthCheck:
             was_ok = self._feed_state.get(feed, True)
             if was_ok and not is_ok:
                 # Feed just went DOWN
+                affected = "latency_arb, ta_signal" if feed == "binance" else feed
                 _send(
-                    f"🚨 <b>Feed DOWN: {feed.upper()}</b>\n"
-                    f"Wolf has paused trading on affected strategies.\n"
-                    f"Trading blind = not trading. Investigating now."
+                    f"⚠️ <b>{feed.upper()} feed down</b>\n"
+                    f"Paused: {affected}\n"
+                    f"Still running: all other strategies"
                 )
                 logger.critical(f"FEED DOWN: {feed}")
             elif not was_ok and is_ok:

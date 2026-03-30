@@ -55,8 +55,9 @@ class RiskEngine:
         if self.halted:
             return False, f"Halted: {self.halt_reason}"
 
-        if len(self.open_positions) >= config.MAX_OPEN_POSITIONS:
-            return False, f"Max open positions reached ({config.MAX_OPEN_POSITIONS})"
+        max_pos = getattr(config, "MAX_OPEN_POSITIONS_PAPER", config.MAX_OPEN_POSITIONS) if config.PAPER_MODE else config.MAX_OPEN_POSITIONS
+        if len(self.open_positions) >= max_pos:
+            return False, f"Max open positions reached ({len(self.open_positions)}/{max_pos})"
 
         daily_pnl_pct = (self.current_balance - self.daily_start_balance) / self.daily_start_balance
         if daily_pnl_pct <= config.DAILY_LOSS_LIMIT:

@@ -40,14 +40,27 @@ class BinanceFeed:
             self._task.cancel()
 
     async def _rest_fallback(self):
-        """Poll Binance US REST API as fallback when WS is blocked."""
-        import requests
+        """Poll Binance US REST API — non-blocking async."""
         sym = self.symbol.upper()
+        url = f"{self.REST_URL}?symbol={sym}"
         try:
-            r = requests.get(self.REST_URL, params={"symbol": sym}, timeout=5)
-            if r.ok:
-                self._price = float(r.json()["price"])
-                self._last_update = time.time()
+            if _USE_HTTPX:
+                # Truly non-blocking — doesn't stall the event loop
+                async with _httpx.AsyncClient(timeout=4.0) as client:
+                    r = await client.get(self.REST_URL, params={"symbol": sym})
+                    if r.status_code == 200:
+                        self._price = float(r.json()["price"])
+                        self._last_update = time.time()
+            else:
+                # Fallback: run blocking requests.get in thread pool
+                loop = asyncio.get_event_loop()
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: requests.get(self.REST_URL, params={"symbol": sym}, timeout=4)
+                )
+                if r.ok:
+                    self._price = float(r.json()["price"])
+                    self._last_update = time.time()
         except Exception as e:
             logger.debug(f"REST fallback error for {sym}: {e}")
 
