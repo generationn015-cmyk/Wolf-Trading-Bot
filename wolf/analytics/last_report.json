@@ -1,23 +1,50 @@
 {
   "period_hours": 24,
-  "generated_at": 1774842222.641439,
+  "generated_at": 1774842497.920845,
   "overall": {
-    "total_trades": 0,
-    "wins": 0,
+    "total_trades": 1,
+    "wins": 1,
     "losses": 0,
-    "win_rate": 0,
-    "total_pnl": 0,
-    "avg_pnl_per_trade": 0,
-    "best_trade": 0,
-    "worst_trade": 0,
-    "avg_confidence": 0
+    "win_rate": 1.0,
+    "total_pnl": 39.2,
+    "avg_pnl_per_trade": 39.2,
+    "best_trade": 39.2,
+    "worst_trade": 39.2,
+    "avg_confidence": 0.736
   },
-  "by_strategy": {},
-  "price_buckets": [],
-  "hourly_performance": [],
+  "by_strategy": {
+    "copy_trading": {
+      "total": 1,
+      "wins": 1,
+      "win_rate": 1.0,
+      "pnl": 39.2,
+      "avg_pnl": 39.2,
+      "avg_confidence": 0.736,
+      "avg_price": 0.51,
+      "best": 39.2,
+      "worst": 39.2
+    }
+  },
+  "price_buckets": [
+    {
+      "range": "0.5\u20130.6",
+      "total": 1,
+      "win_rate": 1.0,
+      "pnl": 39.2,
+      "flag": ""
+    }
+  ],
+  "hourly_performance": [
+    {
+      "hour_et": 23,
+      "total": 1,
+      "win_rate": 1.0,
+      "pnl": 39.2
+    }
+  ],
   "worst_losses": [],
   "wallet_performance": [],
   "lessons": [
-    "\ud83d\udd34 Overall WR 0.0% \u2014 below target. Tighten filters."
+    "\ud83d\udfe2 Overall WR 100.0% \u2014 above target. Hold current filters."
   ]
 }
