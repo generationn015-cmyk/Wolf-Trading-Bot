@@ -9,6 +9,7 @@ read_when:
 ## Overnight (23:00–08:00 ET) — MINIMAL MODE
 - Reply HEARTBEAT_OK immediately. Do not run backups, do not check anything.
 - Exception: only act if Wolf health_monitor already sent an alert (you'll know from context).
+- Cost rule: overnight heartbeats burn tokens for no value. Stay silent.
 
 ## Daytime (08:00–23:00 ET)
 - Run backup at most once every 2 hours: check `git log --since='2 hours ago' --oneline | wc -l`
