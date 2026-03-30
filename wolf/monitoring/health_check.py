@@ -56,10 +56,15 @@ class HealthCheck:
         # Binance feed check
         try:
             from feeds.binance_feed import btc_feed
+            price = btc_feed.get_price()
             age_ms = btc_feed.get_price_age_ms()
-            results["binance_ok"] = age_ms < 30000  # 30s window — REST polls every 2s, allows startup lag
-            if not results["binance_ok"]:
-                send_alert(f"Binance feed stale: {age_ms:.0f}ms", "WARNING")
+            # Never flag as down if we've never received a price yet (feed still initializing)
+            if price == 0.0:
+                results["binance_ok"] = True  # Initializing — not a failure
+            else:
+                results["binance_ok"] = age_ms < 30000
+                if not results["binance_ok"]:
+                    send_alert(f"Binance feed stale: {age_ms:.0f}ms", "WARNING")
         except Exception as e:
             results["binance_ok"] = False
             send_alert(f"Binance feed error: {e}", "WARNING")

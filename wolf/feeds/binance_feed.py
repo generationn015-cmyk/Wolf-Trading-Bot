@@ -135,6 +135,9 @@ class BinanceFeed:
     def get_current_price(self) -> float:
         return self._price
 
+    def get_price(self) -> float:
+        return self._price
+
     def get_price_age_ms(self) -> float:
         if self._last_update == 0:
             return float("inf")
