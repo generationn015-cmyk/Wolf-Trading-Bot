@@ -1,7 +1,8 @@
 """
 Wolf Trading Bot — Telegram Alerts
 Sends alerts to Jefe. INFO / WARNING / CRITICAL levels.
-CRITICAL alerts are prefixed with 🚨 and always sent.
+CRITICAL alerts are always sent regardless of mode.
+INFO/WARNING alerts are suppressed in paper mode — only fire in live mode.
 """
 import requests
 import logging
@@ -10,10 +11,19 @@ import config
 logger = logging.getLogger("wolf.alerts")
 
 def send_alert(message: str, level: str = "INFO"):
-    """Send a Telegram alert to Jefe."""
+    """Send a Telegram alert to Jefe.
+    
+    In paper mode: only CRITICAL alerts are sent.
+    In live mode: all alerts are sent.
+    """
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         logger.warning(f"Telegram not configured. [{level}] {message}")
         return False
+
+    # Suppress non-critical alerts in paper mode
+    if config.PAPER_MODE and level.upper() != "CRITICAL":
+        logger.info(f"[PAPER MODE - suppressed] [{level}] {message}")
+        return True
 
     prefix = {
         "INFO": "🐺",
