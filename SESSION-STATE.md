@@ -1,8 +1,9 @@
 # SESSION-STATE.md — Active Working Memory
 
 ## Current Focus
-- Wolf trading bot — copy trading wallets FIXED (see Recent Decisions)
-- Model routing and compaction limits locked down
+- Wolf paper trading LIVE — accumulating trades toward gate (88 resolved, $+660 P&L, 38.6% win rate, gate needs 55%)
+- All 3 strategies running: copy trading (20/20 wallets), market making (20 markets), latency arb
+- Target: hit 55% win rate gate, then await Jefe go/no-go for live
 
 ## Key Context
 - Running on Hostinger VPS (Docker container)
@@ -32,8 +33,9 @@
 - No live execution without explicit Jefe authorization
 
 ## Blockers
-- Wolf not running as daemon yet — copy trading wallets will populate once wolf/main.py is started
-- Need Jefe to confirm target market and exchange before advancing strategies
+- Win rate gate (38.6% → needs 55%) — resolving naturally as trades accumulate
+- Need Jefe to confirm target market and exchange before advancing beyond Polymarket
+- Polymarket credentials (private key, API key) needed before live mode
 
 ---
 Last updated: 2026-03-29
