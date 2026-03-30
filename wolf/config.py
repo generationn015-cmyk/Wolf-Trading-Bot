@@ -51,7 +51,7 @@ MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $
 # ─── STRATEGY PARAMETERS ─────────────────────────────────────────────────────
 LATENCY_ARB_THRESHOLD       = float(os.getenv("LATENCY_ARB_THRESHOLD", "0.003"))  # 0.3% divergence
 MIN_CONFIDENCE              = float(os.getenv("MIN_CONFIDENCE", "0.68"))     # Balanced: volume + quality
-VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.15"))
+VPIN_SPIKE_THRESHOLD        = float(os.getenv("VPIN_SPIKE_THRESHOLD", "0.30"))  # raised 0.15→0.30: allows 55/45–65/35 markets; still blocks toxic 70/30+
 COPY_TRADE_MAX_AGE_SEC      = int(os.getenv("COPY_TRADE_MAX_AGE_SEC", "28800"))  # 8h — paper mode wide window; tighten to 300-600 for live
 COPY_TRADE_MIN_SIZE         = float(os.getenv("COPY_TRADE_MIN_SIZE", "30"))   # $30 min whale size
 COPY_DEMO_MIN_TRADES        = int(os.getenv("COPY_DEMO_MIN_TRADES", "5"))     # Demo validation trades (low — leaderboard wallets have proven PnL track record)
