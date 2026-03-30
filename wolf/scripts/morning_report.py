@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Wolf 6AM Morning Report — sends Telegram update to Jefe."""
-import sys, sqlite3, time, os, requests
+"""Wolf 6AM Morning Report — sends interactive Telegram update to Jefe."""
+import sys, sqlite3, time, os, requests, json
 sys.path.insert(0, '/data/.openclaw/workspace/wolf')
 
 conn = sqlite3.connect('/data/.openclaw/workspace/wolf/wolf_data.db')
@@ -15,7 +15,7 @@ balance = 1000 + pnl
 c.execute('SELECT COUNT(*) FROM paper_trades WHERE resolved=0')
 open_t = c.fetchone()[0]
 
-c.execute('SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1 GROUP BY strategy ORDER BY COUNT(*) DESC')
+c.execute('SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1 GROUP BY strategy ORDER BY SUM(pnl) DESC')
 strats = c.fetchall()
 
 c.execute('SELECT MAX(timestamp) FROM paper_trades WHERE resolved=1')
@@ -65,11 +65,24 @@ Last 5 Trades:
 {'─'*30}
 {'✅ GATE PASSED — ready to review for live' if gate_done else f'🔒 Gate: {total}/100 trades | {wr:.1%}/72% WR | {max(0,100-total)} trades to go'}"""
 
-# Send via Telegram
+# ── Inline keyboard ───────────────────────────────────────────────────────────
+keyboard = {
+    "inline_keyboard": [
+        [
+            {"text": "👍 Got it — briefed", "callback_data": "ack_report"},
+            {"text": "📊 Full stats",        "callback_data": "wolf_full_stats"},
+        ],
+        [
+            {"text": "🔴 Kill Wolf",         "callback_data": "wolf_kill"},
+            {"text": "🔁 Restart Wolf",      "callback_data": "wolf_restart"},
+        ]
+    ]
+}
+
+# ── Send via Telegram ─────────────────────────────────────────────────────────
 bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
 chat_id    = os.getenv('TELEGRAM_CHAT_ID', '')
 
-# Try loading from .env files
 for env_path in ['/data/.openclaw/.env', '/data/.openclaw/workspace/wolf/.env']:
     if os.path.exists(env_path):
         for line in open(env_path).read().splitlines():
@@ -83,7 +96,11 @@ for env_path in ['/data/.openclaw/.env', '/data/.openclaw/workspace/wolf/.env']:
 if bot_token and chat_id:
     resp = requests.post(
         f'https://api.telegram.org/bot{bot_token}/sendMessage',
-        json={'chat_id': chat_id, 'text': report},
+        json={
+            'chat_id':      chat_id,
+            'text':         report,
+            'reply_markup': keyboard,
+        },
         timeout=10,
     )
     if resp.ok:
