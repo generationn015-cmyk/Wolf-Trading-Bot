@@ -106,7 +106,7 @@ class ValueBetStrategy:
                 # Paper mode: prefer short-duration markets to get real resolutions quickly
                 # Skip very long-term markets during paper test (no data feedback for months)
                 import config as _cfg
-                max_days = 30 if _cfg.PAPER_MODE else 365
+                max_days = 7 if _cfg.PAPER_MODE else 365
                 if days_out > max_days and days_out != 999:
                     continue
 
@@ -220,6 +220,12 @@ class ValueBetStrategy:
             if len(signals) >= 3:
                 break
 
-        # Prioritize shorter-duration markets — faster data feedback, less capital lock-up
-        signals.sort(key=lambda s: s.get("days_to_expiry", 999))
+        # Prioritize short-duration markets aggressively — need fast resolutions for data
+        def _dur_priority(s):
+            d = s.get("days_to_expiry", 999)
+            if d <= 1:   return 0   # resolves today/tomorrow — top priority
+            elif d <= 3: return 1   # resolves this week
+            elif d <= 7: return 3   # max allowed in paper mode
+            else:        return 10  # deprioritize
+        signals.sort(key=_dur_priority)
         return signals

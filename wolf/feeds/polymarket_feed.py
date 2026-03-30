@@ -3,6 +3,7 @@ Wolf Trading Bot — Polymarket Feed
 Wraps the py-clob-client SDK for market data and wallet intelligence.
 """
 import logging
+from typing import Optional
 import time
 import requests
 import config
@@ -69,6 +70,38 @@ def get_market_volume(market_id: str) -> float:
     except Exception as e:
         logger.warning(f"get_market_volume error: {e}")
     return 0.0
+
+_end_date_cache: dict = {}
+
+def get_market_end_date(market_id: str) -> Optional[float]:
+    """Returns days until market resolution, or None if unknown."""
+    from datetime import datetime, timezone
+    now = time.time()
+    if market_id in _end_date_cache:
+        ts, val = _end_date_cache[market_id]
+        if now - ts < 300:  # 5 min cache
+            return val
+    try:
+        resp = requests.get(
+            f"{config.POLYMARKET_GAMMA_URL}/markets",
+            params={"clob_token_ids": market_id},
+            timeout=8
+        )
+        if resp.ok:
+            data = resp.json()
+            if data:
+                end_raw = data[0].get("endDate") or data[0].get("endDateIso") or ""
+                if end_raw:
+                    end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+                    if not end_dt.tzinfo:
+                        end_dt = end_dt.replace(tzinfo=timezone.utc)
+                    days = max(0.0, (end_dt - datetime.now(timezone.utc)).total_seconds() / 86400)
+                    _end_date_cache[market_id] = (now, days)
+                    return days
+    except Exception as e:
+        logger.debug(f"get_market_end_date error {market_id[:12]}: {e}")
+    _end_date_cache[market_id] = (now, None)
+    return None
 
 def get_orderbook(market_id: str) -> dict:
     """Returns orderbook dict with bids/asks."""

@@ -88,6 +88,21 @@ class MarketMaker:
                 vol = float(m.get("volumeNum", 0) or 0)
                 if vol < config.MIN_MARKET_VOLUME:
                     continue
+                # Duration filter: paper mode — prefer markets resolving within 7 days
+                import config as _mmcfg
+                if _mmcfg.PAPER_MODE:
+                    from datetime import datetime, timezone as _tz
+                    _end_raw = m.get("endDate") or m.get("endDateIso") or ""
+                    if _end_raw:
+                        try:
+                            _end_dt = datetime.fromisoformat(_end_raw.replace("Z", "+00:00"))
+                            if not _end_dt.tzinfo: _end_dt = _end_dt.replace(tzinfo=_tz.utc)
+                            _days = (_end_dt - datetime.now(_tz.utc)).total_seconds() / 86400
+                            if _days > 7:
+                                continue
+                        except Exception:
+                            pass
+
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1
                 m["_volume"]    = vol

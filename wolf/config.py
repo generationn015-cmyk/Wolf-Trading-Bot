@@ -54,7 +54,7 @@ KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))
 MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))   # live hard cap
 MAX_OPEN_POSITIONS_PAPER    = int(os.getenv("MAX_OPEN_POSITIONS_PAPER", "24"))  # paper: wider net for data collection
 VALUE_BET_MAX_DAYS          = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))  # Skip markets resolving >14 days out
-MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "24"))     # Force-exit any position not resolved after 24h — keeps Wolf cycling daily
+MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "12"))     # Force-exit after 12h in paper mode — keeps Wolf cycling faster for data
 MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))
 MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
 
