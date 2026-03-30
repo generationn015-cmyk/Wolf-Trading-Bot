@@ -3,6 +3,7 @@ Wolf Trading Bot — Paper Mode
 Simulates all trades against live market data. No real money moves.
 Gate: 200+ trades AND 80%+ win rate required before going live.
 """
+import os
 import time
 import logging
 from dataclasses import dataclass, field
@@ -31,6 +32,42 @@ class PaperTrader:
         self.starting_balance = starting_balance
         self.trades: list[PaperTrade] = []
         self.open_trades: list[PaperTrade] = []
+        self._load_from_db()
+
+    def _load_from_db(self):
+        """Restore resolved paper trades from DB so gate logic survives restarts."""
+        try:
+            import sqlite3
+            db_path = config.DB_PATH
+            if not os.path.exists(db_path):
+                return
+            with sqlite3.connect(db_path) as conn:
+                rows = conn.execute(
+                    "SELECT strategy, venue, market_id, side, size, entry_price, "
+                    "exit_price, pnl, resolved, won, timestamp FROM paper_trades "
+                    "WHERE resolved=1 ORDER BY timestamp ASC"
+                ).fetchall()
+            for row in rows:
+                t = PaperTrade(
+                    timestamp=row[10],
+                    strategy=row[0],
+                    venue=row[1],
+                    market_id=row[2],
+                    side=row[3],
+                    size=row[4],
+                    entry_price=row[5],
+                    exit_price=row[6],
+                    pnl=row[7],
+                    resolved=bool(row[8]),
+                    won=bool(row[9]),
+                )
+                self.trades.append(t)
+                if t.pnl is not None:
+                    self.balance += t.pnl
+            if self.trades:
+                logger.info(f"Restored {len(self.trades)} paper trades from DB | balance=${self.balance:.2f}")
+        except Exception as e:
+            logger.warning(f"Could not restore paper trades from DB: {e}")
 
     def place_trade(self, strategy: str, venue: str, market_id: str,
                     side: str, size: float, entry_price: float) -> PaperTrade:
