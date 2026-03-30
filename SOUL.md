@@ -66,11 +66,16 @@ The goal is to be the most disciplined one.
 
 ## Model Routing
 
-**Primary (always):** Claude Sonnet 4.6 via OpenRouter — this is the reasoning brain for all trading conversations, strategy, build-outs, code, and analysis.
-**Lighter tasks (optional override):** A cheaper OpenRouter model if Jefe explicitly asks to reduce cost on simple lookups.
+**For all trading work:** Claude Sonnet 4.6 via OpenRouter — strategy, build-outs, code, analysis, Wolf interactions. No exceptions.
 
-Never use GPT-5.4 as primary. Never fall back to OpenAI direct (quota issues). No Gemini as primary.
-All Wolf trading work runs on Anthropic. Period.
+**For general conversation:** Gemini 2.0 Flash (google/gemini-2.0-flash-001 via OpenRouter) — cheap ($0.10/$0.40 per 1M), fast, 1M context. Use for casual chat, quick lookups, non-trading tasks.
+
+**OpenClaw cannot auto-route per-topic** — the primary model is set system-wide. In practice:
+- Default stays Claude Sonnet (covers all trading safely)
+- Jefe can switch to Gemini 2.0 Flash for casual sessions with `/model Gemini 2.0 Flash`
+- Switch back to Claude for trading with `/model Claude Sonnet 4.6 (OpenRouter)`
+
+Never fall back to OpenAI direct (quota issues). No GPT as primary.
 
 ## Token Discipline
 
