@@ -3,6 +3,7 @@ Wolf Trading Bot — Copy Trading Strategy
 Tracks top Polymarket wallets. Demo-validates each wallet before live copy.
 Mirrors fresh trades proportionally across any market category.
 """
+import os
 import time
 import logging
 import asyncio
@@ -34,6 +35,28 @@ class CopyTrader:
         self._last_refresh: float = 0
         self._refresh_interval = 300  # refresh wallet list every 5 min
         self.intel = IntelligenceEngine()
+        # Persistent dedup set — load already-fired trade IDs from DB on init
+        self._fired_trade_ids: set[str] = self._load_fired_ids()
+
+    def _load_fired_ids(self) -> set:
+        """Load all market_ids already traded to prevent re-firing on restart."""
+        try:
+            import sqlite3
+            if not os.path.exists(config.DB_PATH):
+                return set()
+            with sqlite3.connect(config.DB_PATH) as conn:
+                rows = conn.execute(
+                    "SELECT DISTINCT market_id FROM paper_trades "
+                    "WHERE strategy='copy_trading' AND timestamp > ?",
+                    (time.time() - config.COPY_TRADE_MAX_AGE_SEC,)
+                ).fetchall()
+            ids = {r[0] for r in rows}
+            if ids:
+                logger.info(f"Loaded {len(ids)} recent copy trade IDs — dedup active")
+            return ids
+        except Exception as e:
+            logger.warning(f"Could not load fired trade IDs: {e}")
+            return set()
 
     async def refresh_wallets(self):
         """Pull top wallets and update profiles."""
@@ -134,8 +157,13 @@ class CopyTrader:
 
                 latest = activity[0]
                 trade_id = latest.get("transactionHash", "")
-                if trade_id == profile.last_seen_trade_id:
-                    continue  # Already seen this trade
+                market_id_check = latest.get("conditionId", "")
+
+                # Dedup: skip if this exact trade OR this market was already fired recently
+                if trade_id and trade_id == profile.last_seen_trade_id:
+                    continue
+                if market_id_check and market_id_check in self._fired_trade_ids:
+                    continue
 
                 # Check freshness
                 trade_ts = latest.get("timestamp", 0)
@@ -180,6 +208,7 @@ class CopyTrader:
                     continue
 
                 profile.last_seen_trade_id = trade_id
+                self._fired_trade_ids.add(market_id_check)  # Dedup across wallets + restarts
 
                 if not profile.demo_validated:
                     profile.demo_validated = True
