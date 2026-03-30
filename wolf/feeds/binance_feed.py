@@ -61,13 +61,26 @@ class BinanceFeed:
         url_idx = 0
         ws_empty_strikes = 0  # Count of WS connections that yielded 0 messages
 
+        # Check persisted REST-only flag — if set, skip WS probe entirely (known VPS block)
+        if os.path.exists(_REST_ONLY_FLAG):
+            logger.debug(f"Binance REST mode active for {self.symbol} (cached)")
+            while self._running:
+                await self._rest_fallback()
+                await asyncio.sleep(2)
+            return
+
         # Fast-path: probe REST first — if it works on this host, prefer it
         await self._rest_fallback()
         if self._price > 0:
-            logger.info(f"Binance REST reachable for {self.symbol} — using REST polling (WS blocked on VPS)")
+            logger.info(f"Binance feed active: {self.symbol} via REST")
+            # Persist REST-only mode so future restarts skip WS probe immediately
+            try:
+                open(_REST_ONLY_FLAG, "w").write("rest_only")
+            except Exception:
+                pass
             while self._running:
                 await self._rest_fallback()
-                await asyncio.sleep(2)  # 2s poll — fresh enough for 5m/15m TA
+                await asyncio.sleep(2)
             return
 
         while self._running:
@@ -91,7 +104,7 @@ class BinanceFeed:
                     ws_empty_strikes += 1
                     url_idx += 1
                     if ws_empty_strikes >= len(self.WS_URLS):
-                        logger.warning(f"Binance WS blocked for {self.symbol} — switching to REST polling")
+                        logger.debug(f"Binance WS blocked for {self.symbol} — REST mode confirmed")
                         while self._running:
                             await self._rest_fallback()
                             await asyncio.sleep(2)

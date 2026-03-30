@@ -288,17 +288,25 @@ async def main():
 
             # ── Strategy scans ────────────────────────────────────────────────
 
-            # Priority 1: Latency Arb (fastest edge, fires first)
-            try:
-                for sig in await latency_arb.scan():
-                    res = order_manager.execute_signal(sig)
-                    if res["status"] in ("paper_executed", "live_executed"):
-                        logger.info(
-                            f"[{res['status']}] LatencyArb: "
-                            f"{sig['market_id'][:20]}... {sig['side']} conf={sig['confidence']:.2f}"
-                        )
-            except Exception as e:
-                logger.warning(f"Latency arb error: {e}")
+            # ── Binance feed health check ─────────────────────────────────────
+            # Only latency_arb and ta_signal depend on Binance.
+            # All other strategies run regardless of Binance feed status.
+            from feeds.binance_feed import btc_feed as _btc_f
+            _binance_ok = _btc_f.is_fresh(max_age_ms=15000)  # 15s tolerance for REST polling
+
+            # Priority 1: Latency Arb — BINANCE-DEPENDENT
+            # Paused when Binance feed is stale. All other strategies unaffected.
+            if _binance_ok:
+                try:
+                    for sig in await latency_arb.scan():
+                        res = order_manager.execute_signal(sig)
+                        if res["status"] in ("paper_executed", "live_executed"):
+                            logger.info(
+                                f"[{res['status']}] LatencyArb: "
+                                f"{sig['market_id'][:20]}... {sig['side']} conf={sig['confidence']:.2f}"
+                            )
+                except Exception as e:
+                    logger.warning(f"Latency arb error: {e}")
 
             # Priority 2: Copy Trading
             try:
@@ -339,18 +347,20 @@ async def main():
             except Exception as e:
                 logger.warning(f"Timezone arb error: {e}")
 
-            # Priority 4b: TA Signal (RSI+MACD+Stoch+EMA+OBV+VWAP+ATR)
-            try:
-                for sig in await ta_signal.scan():
-                    res = order_manager.execute_signal(sig)
-                    if res["status"] in ("paper_executed", "live_executed"):
-                        logger.info(
-                            f"[{res['status']}] TASignal: "
-                            f"{sig['market_id'][:20]}... {sig['side']} "
-                            f"conf={sig['confidence']:.2f} {sig.get('reason','')[:60]}"
-                        )
-            except Exception as e:
-                logger.warning(f"TA signal error: {e}")
+            # Priority 4b: TA Signal — BINANCE-DEPENDENT
+            # Paused when Binance feed is stale. All other strategies unaffected.
+            if _binance_ok:
+                try:
+                    for sig in await ta_signal.scan():
+                        res = order_manager.execute_signal(sig)
+                        if res["status"] in ("paper_executed", "live_executed"):
+                            logger.info(
+                                f"[{res['status']}] TASignal: "
+                                f"{sig['market_id'][:20]}... {sig['side']} "
+                                f"conf={sig['confidence']:.2f} {sig.get('reason','')[:60]}"
+                            )
+                except Exception as e:
+                    logger.warning(f"TA signal error: {e}")
 
             # Priority 4c: Value Bet (near-certain + strong signal markets)
             try:
@@ -429,6 +439,13 @@ async def main():
                     _resolve_paper_trades(paper, journal, market_maker)
                 except Exception as e:
                     logger.warning(f"Paper resolve error: {e}")
+
+            # ── Dashboard push ────────────────────────────────────────────────
+            try:
+                from feeds.dashboard_push import push_to_dashboard
+                push_to_dashboard()
+            except Exception as e:
+                pass  # Dashboard push never blocks trading
 
             # ── Status log ────────────────────────────────────────────────────
             if now - last_status > STATUS_INTERVAL:

@@ -32,7 +32,6 @@ _BELFORT_QUOTES = [
     "Stratton Oakmont IS America.",
 ]
 
-import random as _random
 def _belfort() -> str:
     return _random.choice(_BELFORT_QUOTES)
 
@@ -114,11 +113,7 @@ def alert_trade_entry(
     short_market = short_market.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
     strat_clean = strategy.replace("_", " ").title()
     text = (
-        f"{dot} <b>TRADE ENTERED</b>  ·  {mode}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"<b>{strat_clean}</b>  ·  {side}  ·  <b>${entry_price:.3f}</b>\n"
-        f"Size: <b>${size:.2f}</b>    Confidence: <b>{confidence:.0%}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{dot} <b>{strat_clean}</b>  {side} @ {entry_price:.3f}\n"
         f"<i>{short_market}</i>"
     )
     sent = _send(text)
@@ -151,16 +146,9 @@ def alert_trade_exit(
     short_market = market[:55] + "…" if len(market) > 55 else market
     short_market = short_market.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
     strat_clean = strategy.replace("_", " ").title()
-    quote_line = f"\n\n<i>\"{_belfort()}\"</i>" if won else ""
     text = (
-        f"{result_icon} <b>TRADE CLOSED  ·  {result_word}</b>  ·  {mode}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"<b>{strat_clean}</b>  ·  {side}\n"
-        f"Entry: <b>${entry_price:.3f}</b>  →  Exit: <b>${exit_price:.3f}</b>\n"
-        f"P&amp;L: <b>{pnl_str}</b>    Hold: {hold}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{result_icon} <b>{strat_clean}</b>  {side}  {pnl_str}  ({hold})\n"
         f"<i>{short_market}</i>"
-        f"{quote_line}"
     )
     _send(text)
 

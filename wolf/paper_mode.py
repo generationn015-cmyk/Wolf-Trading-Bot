@@ -49,7 +49,7 @@ class PaperTrader:
                 rows = conn.execute(
                     "SELECT strategy, venue, market_id, side, size, entry_price, "
                     "exit_price, pnl, resolved, won, timestamp FROM paper_trades "
-                    "WHERE resolved=1 ORDER BY timestamp ASC"
+                    "WHERE resolved=1 AND simulated=0 ORDER BY timestamp ASC"
                 ).fetchall()
                 for row in rows:
                     t = PaperTrade(
@@ -66,7 +66,7 @@ class PaperTrader:
                 resolved_ids = {(r[0], r[2], r[3]) for r in rows}  # (strategy, market_id, side)
                 open_rows = conn.execute(
                     "SELECT strategy, venue, market_id, side, size, entry_price, timestamp "
-                    "FROM paper_trades WHERE resolved=0"
+                    "FROM paper_trades WHERE resolved=0 AND simulated=0"
                 ).fetchall()
                 # Filter out markets that already have a resolved entry
                 open_rows = [r for r in open_rows
