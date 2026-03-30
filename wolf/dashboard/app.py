@@ -57,7 +57,7 @@ def fetch_stats():
     # Overall
     c.execute('''SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END),
                  ROUND(SUM(pnl),2), ROUND(AVG(confidence),3)
-                 FROM paper_trades WHERE resolved=1''')
+                 FROM paper_trades WHERE resolved=1 AND simulated=0''')
     total, wins, pnl, avg_conf = c.fetchone()
     total = total or 0; wins = wins or 0; pnl = pnl or 0.0
     wr = round(wins / total * 100, 1) if total else 0
@@ -65,7 +65,7 @@ def fetch_stats():
     # By strategy
     c.execute('''SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END),
                  ROUND(SUM(pnl),2), ROUND(AVG(confidence),3)
-                 FROM paper_trades WHERE resolved=1
+                 FROM paper_trades WHERE resolved=1 AND simulated=0
                  GROUP BY strategy ORDER BY SUM(pnl) DESC''')
     strats = []
     for row in c.fetchall():
@@ -78,21 +78,33 @@ def fetch_stats():
         })
 
     # Open positions
-    c.execute('''SELECT strategy, side, entry_price, size, timestamp, market_id
-                 FROM paper_trades WHERE resolved=0 ORDER BY timestamp DESC''')
+    c.execute('''SELECT strategy, side, entry_price, size, timestamp, market_id, reason
+                 FROM paper_trades WHERE resolved=0 AND simulated=0 ORDER BY timestamp DESC''')
     opens = []
+    import re as _re
     for row in c.fetchall():
-        strat, side, ep, sz, ts, mid = row
+        strat, side, ep, sz, ts, mid, reason = row
+        # Extract human-readable name from reason
+        market_name = ""
+        if reason:
+            pipe = reason.find(" | ")
+            if pipe >= 0:
+                market_name = reason[pipe+3:].strip()[:55]
+            elif "Copy top trader" in reason:
+                w = _re.search(r"0x[a-f0-9]+", reason)
+                market_name = f"Whale: {w.group()[:10]}…" if w else "Whale copy"
+            else:
+                market_name = reason[:50]
         opens.append({
             "strategy": strat, "side": side, "entry_price": ep,
             "size": sz, "age_min": round((time.time() - (ts or 0)) / 60, 1),
-            "market_id": (mid or "")[:20],
+            "market_id": market_name or (mid or "")[:28],
         })
 
     # P&L curve (hourly buckets)
     c.execute('''SELECT CAST(timestamp/3600 AS INT)*3600 as bucket,
                  ROUND(SUM(pnl),2), COUNT(*)
-                 FROM paper_trades WHERE resolved=1
+                 FROM paper_trades WHERE resolved=1 AND simulated=0
                  GROUP BY bucket ORDER BY bucket''')
     curve_raw = c.fetchall()
     running = 1000.0
@@ -104,7 +116,7 @@ def fetch_stats():
     # Recent trades
     c.execute('''SELECT strategy, side, entry_price, exit_price, pnl, won,
                  confidence, timestamp
-                 FROM paper_trades WHERE resolved=1
+                 FROM paper_trades WHERE resolved=1 AND simulated=0
                  ORDER BY timestamp DESC LIMIT 20''')
     recent = []
     for row in c.fetchall():
@@ -127,7 +139,7 @@ def fetch_stats():
             pass
 
     # Best/worst
-    c.execute('SELECT MAX(pnl), MIN(pnl) FROM paper_trades WHERE resolved=1')
+    c.execute('SELECT MAX(pnl), MIN(pnl) FROM paper_trades WHERE resolved=1 AND simulated=0')
     best, worst = c.fetchone()
 
     # Health

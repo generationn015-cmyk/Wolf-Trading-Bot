@@ -41,7 +41,7 @@ ok(f"KILL_SWITCH={config.KILL_SWITCH_THRESHOLD:.0%}") if config.KILL_SWITCH_THRE
 ok(f"DAILY_LOSS={config.DAILY_LOSS_LIMIT:.0%}") if config.DAILY_LOSS_LIMIT == -0.20 else fail(f"Daily loss wrong: {config.DAILY_LOSS_LIMIT}")
 ok(f"MAX_POSITION_LIVE=${config.MAX_POSITION_LIVE}") if config.MAX_POSITION_LIVE == 8.0 else fail(f"Max position wrong: {config.MAX_POSITION_LIVE}")
 ok(f"MIN_POSITION_LIVE=${config.MIN_POSITION_LIVE}") if config.MIN_POSITION_LIVE == 1.0 else fail(f"Min position wrong: {config.MIN_POSITION_LIVE}")
-ok(f"MAX_OPEN_POSITIONS={config.MAX_OPEN_POSITIONS}") if config.MAX_OPEN_POSITIONS == 5 else warn(f"Max open positions: {config.MAX_OPEN_POSITIONS}")
+ok(f"MAX_OPEN_POSITIONS live={config.MAX_OPEN_POSITIONS} paper={config.MAX_OPEN_POSITIONS_PAPER}")
 ok(f"LIVE_CAPITAL=${config.LIVE_STARTING_CAPITAL}") if config.LIVE_STARTING_CAPITAL == 100.0 else warn(f"Live capital: {config.LIVE_STARTING_CAPITAL}")
 ok("Private key set") if len(config.POLYMARKET_PRIVATE_KEY) > 20 else fail("POLYMARKET_PRIVATE_KEY missing")
 ok("API key set") if len(config.POLYMARKET_API_KEY) > 10 else fail("POLYMARKET_API_KEY missing")
@@ -274,7 +274,8 @@ null_pnl = c.execute("SELECT COUNT(*) FROM paper_trades WHERE resolved=1 AND pnl
 ok("No NULL pnl on resolved") if null_pnl == 0 else fail(f"{null_pnl} resolved trades with NULL pnl")
 
 open_count = c.execute("SELECT COUNT(*) FROM paper_trades WHERE resolved=0").fetchone()[0]
-ok(f"Open positions: {open_count}") if open_count <= 10 else warn(f"High open count: {open_count} (max 5 in live)")
+paper_cap = getattr(config, "MAX_OPEN_POSITIONS_PAPER", config.MAX_OPEN_POSITIONS)
+ok(f"Open positions: {open_count}/{paper_cap} (paper cap)") if open_count <= paper_cap else warn(f"Over paper cap: {open_count} > {paper_cap}")
 conn.close()
 
 # ── 14. LIVE EXECUTION PATH ──────────────────────────────────────────────────

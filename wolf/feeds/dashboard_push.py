@@ -152,10 +152,10 @@ def push_to_dashboard(force: bool = False) -> bool:
         """).fetchall()
         for row in open_rows:
             tid, strat, mid, side, size, ep, ts, reason = row
-            name = _extract_name(strat, reason or "", mid)
+            symbol = _extract_name(strat, reason or "", mid)
             _post("trades", {
                 "id":         f"pt_{tid}",
-                "symbol":     name,
+                "symbol":     symbol,
                 "side":       side,
                 "strategy":   strat.replace("_", " ").title(),
                 "entryPrice": round(float(ep), 4),

@@ -3,124 +3,240 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🐺 Wolf Trading Bot</title>
-<meta http-equiv="refresh" content="30">
+<title>🐺 Wolf Mission Control</title>
 <style>
-  body { font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; margin: 0; padding: 20px; }
-  h1 { color: #00ff88; border-bottom: 1px solid #333; padding-bottom: 10px; }
-  .paper-banner { background: #1a3a1a; border: 2px solid #00ff88; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; color: #00ff88; font-weight: bold; font-size: 1.1em; }
-  .live-banner { background: #3a1a1a; border: 2px solid #ff4444; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px; color: #ff4444; font-weight: bold; font-size: 1.1em; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-  .card { background: #111; border: 1px solid #333; border-radius: 8px; padding: 15px; }
-  .card h3 { margin: 0 0 8px 0; color: #888; font-size: 0.8em; text-transform: uppercase; }
-  .card .value { font-size: 1.6em; font-weight: bold; color: #00ff88; }
-  .card .value.negative { color: #ff4444; }
-  .card .value.neutral { color: #ffaa00; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-  th { background: #1a1a1a; color: #888; padding: 8px; text-align: left; border-bottom: 1px solid #333; }
-  td { padding: 8px; border-bottom: 1px solid #1a1a1a; }
-  tr:hover { background: #111; }
-  .win { color: #00ff88; }
-  .loss { color: #ff4444; }
-  .section { margin-top: 25px; }
-  .section h2 { color: #888; font-size: 0.9em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
-  .gate-progress { background: #1a1a1a; border-radius: 20px; height: 20px; margin: 8px 0; overflow: hidden; }
-  .gate-bar { height: 100%; background: linear-gradient(90deg, #00ff88, #00cc66); border-radius: 20px; transition: width 0.3s; }
-  .footer { margin-top: 30px; color: #444; font-size: 0.75em; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #080c10; color: #c8d0da; min-height: 100vh; padding: 24px; }
+  h1 { color: #e8f0fb; font-size: 1.4em; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: #556070; font-size: 0.85em; margin-bottom: 24px; }
+  .mode-banner { padding: 10px 18px; border-radius: 6px; font-weight: 600; font-size: 0.9em; margin-bottom: 24px; display: inline-block; }
+  .paper { background: #0f2318; border: 1px solid #1a5c30; color: #34c76a; }
+  .live  { background: #2a0a0a; border: 1px solid #8b1a1a; color: #ff5555; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .card { background: #0d1520; border: 1px solid #1a2535; border-radius: 8px; padding: 16px; }
+  .card-label { color: #556070; font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .card-value { font-size: 1.7em; font-weight: 700; color: #e8f0fb; }
+  .card-value.green { color: #34c76a; }
+  .card-value.red   { color: #ff5555; }
+  .card-value.amber { color: #f0a040; }
+  .section { margin-bottom: 24px; }
+  .section-title { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.1em; color: #405060; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #1a2535; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+  th { background: #0a1220; color: #405060; padding: 8px 10px; text-align: left; font-weight: 500; font-size: 0.75em; text-transform: uppercase; }
+  td { padding: 9px 10px; border-bottom: 1px solid #0f1a25; color: #b0bcc8; }
+  tr:hover td { background: #0f1b2a; }
+  .win  { color: #34c76a; font-weight: 600; }
+  .loss { color: #ff5555; font-weight: 600; }
+  .open { color: #f0a040; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 0.72em; font-weight: 600; }
+  .badge-vb  { background: #1a2a40; color: #5599ff; }
+  .badge-ct  { background: #1a2a30; color: #44ccaa; }
+  .badge-mm  { background: #2a1a30; color: #cc88ff; }
+  .badge-def { background: #2a2020; color: #aa8866; }
+  .progress-track { background: #0f1a25; border-radius: 10px; height: 6px; margin-top: 6px; }
+  .progress-fill  { height: 6px; border-radius: 10px; background: linear-gradient(90deg, #1a6640, #34c76a); }
+  .gate-row { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .gate-item { flex: 1; min-width: 140px; }
+  .health-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .ok   { background: #34c76a; }
+  .err  { background: #ff5555; }
+  .warn { background: #f0a040; }
+  footer { color: #2a3540; font-size: 0.72em; margin-top: 20px; }
+  @media (max-width: 700px) { .grid4 { grid-template-columns: repeat(2, 1fr); } .grid3 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<h1>🐺 Wolf Trading Bot</h1>
 
-{% if paper_mode %}
-<div class="paper-banner">📄 PAPER MODE — Simulated trades only. No real money at risk.</div>
-{% else %}
-<div class="live-banner">⚠️ LIVE MODE — Real money is being traded. Monitor closely.</div>
-{% endif %}
+<h1>🐺 Wolf Mission Control</h1>
+<div class="subtitle">Real-time paper trading monitor · Auto-refresh every 10s</div>
 
-<div class="grid" id="stats-grid">
-  <div class="card"><h3>Paper Trades</h3><div class="value" id="paper-total">—</div></div>
-  <div class="card"><h3>Win Rate</h3><div class="value" id="paper-winrate">—</div></div>
-  <div class="card"><h3>Paper P&L</h3><div class="value" id="paper-pnl">—</div></div>
-  <div class="card"><h3>Live P&L</h3><div class="value" id="live-pnl">—</div></div>
+<div id="mode-banner" class="mode-banner paper">📄 PAPER MODE</div>
+
+<!-- Stats row -->
+<div class="grid4">
+  <div class="card">
+    <div class="card-label">Resolved Trades</div>
+    <div class="card-value" id="s-total">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Win Rate</div>
+    <div class="card-value" id="s-wr">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Total P&amp;L</div>
+    <div class="card-value" id="s-pnl">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Open Positions</div>
+    <div class="card-value amber" id="s-open">—</div>
+  </div>
 </div>
 
+<!-- Gate progress -->
 <div class="section">
-  <h2>Paper Gate Progress</h2>
-  <div style="color: #888; font-size: 0.85em;">Trades: <span id="gate-trades">—</span>/200 &nbsp;&nbsp; Win Rate: <span id="gate-wr">—</span>/80%</div>
-  <div class="gate-progress"><div class="gate-bar" id="gate-bar" style="width:0%"></div></div>
+  <div class="section-title">Live Gate Progress</div>
+  <div class="gate-row">
+    <div class="gate-item">
+      <div style="font-size:0.78em;color:#556070">Trades: <span id="g-trades">0</span> / 100</div>
+      <div class="progress-track"><div class="progress-fill" id="g-trades-bar" style="width:0%"></div></div>
+    </div>
+    <div class="gate-item">
+      <div style="font-size:0.78em;color:#556070">Win Rate: <span id="g-wr">0%</span> / 72%</div>
+      <div class="progress-track"><div class="progress-fill" id="g-wr-bar" style="width:0%"></div></div>
+    </div>
+    <div style="font-size:0.8em;" id="g-status">⏳ Accumulating paper trades…</div>
+  </div>
 </div>
 
+<!-- System health -->
 <div class="section">
-  <h2>Recent Paper Trades</h2>
+  <div class="section-title">System Health</div>
+  <div style="font-size:0.82em; display:flex; gap:24px; flex-wrap:wrap;">
+    <span><span class="health-dot ok" id="h-binance"></span>Binance</span>
+    <span><span class="health-dot ok" id="h-poly"></span>Polymarket</span>
+    <span><span class="health-dot err" id="h-kalshi"></span>Kalshi (disabled)</span>
+    <span style="color:#405060;" id="h-time">—</span>
+  </div>
+</div>
+
+<!-- Strategy breakdown -->
+<div class="section">
+  <div class="section-title">Strategy Breakdown</div>
   <table>
-    <thead><tr><th>Time</th><th>Strategy</th><th>Venue</th><th>Market</th><th>Side</th><th>Size</th><th>Result</th></tr></thead>
-    <tbody id="trades-table"><tr><td colspan="7" style="color:#444">Loading...</td></tr></tbody>
+    <thead><tr><th>Strategy</th><th>Trades</th><th>Wins</th><th>Win Rate</th><th>P&amp;L</th></tr></thead>
+    <tbody id="strat-table"><tr><td colspan="5" style="color:#2a3540">Loading…</td></tr></tbody>
   </table>
 </div>
 
+<!-- Open positions -->
 <div class="section">
-  <h2>Whale Moves</h2>
+  <div class="section-title">Open Positions (<span id="op-count">0</span>)</div>
   <table>
-    <thead><tr><th>Time</th><th>Wallet</th><th>Market</th><th>Side</th><th>Size</th></tr></thead>
-    <tbody id="whale-table"><tr><td colspan="5" style="color:#444">Loading...</td></tr></tbody>
+    <thead><tr><th>Strategy</th><th>Market</th><th>Side</th><th>Entry</th><th>Size</th><th>Age</th></tr></thead>
+    <tbody id="open-table"><tr><td colspan="6" style="color:#2a3540">Loading…</td></tr></tbody>
   </table>
 </div>
 
-<div class="footer">Auto-refreshes every 30 seconds. Last updated: <span id="last-update">—</span></div>
+<!-- Recent resolved trades -->
+<div class="section">
+  <div class="section-title">Recent Resolved Trades</div>
+  <table>
+    <thead><tr><th>Time</th><th>Strategy</th><th>Side</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Result</th></tr></thead>
+    <tbody id="recent-table"><tr><td colspan="7" style="color:#2a3540">Loading…</td></tr></tbody>
+  </table>
+</div>
+
+<footer id="footer">Last updated: —</footer>
 
 <script>
-function fmt_time(ts) {
-  return new Date(ts * 1000).toLocaleTimeString();
+function stratBadge(s) {
+  if (!s) return '';
+  const k = s.toLowerCase();
+  if (k.includes('value')) return `<span class="badge badge-vb">${s}</span>`;
+  if (k.includes('copy'))  return `<span class="badge badge-ct">${s}</span>`;
+  if (k.includes('market'))return `<span class="badge badge-mm">${s}</span>`;
+  return `<span class="badge badge-def">${s}</span>`;
 }
-function fmt_pnl(v) {
-  if (v === null || v === undefined) return '—';
-  const s = v >= 0 ? '+' : '';
-  return `<span class="${v >= 0 ? 'win' : 'loss'}">${s}$${Math.abs(v).toFixed(2)}</span>`;
+function pnlClass(v) { return v >= 0 ? 'win' : 'loss'; }
+function fmtPnl(v) {
+  if (v == null) return '—';
+  return `<span class="${pnlClass(v)}">${v >= 0 ? '+' : ''}$${Math.abs(v).toFixed(2)}</span>`;
 }
+function ageStr(min) {
+  if (min < 60) return `${Math.round(min)}m`;
+  return `${(min/60).toFixed(1)}h`;
+}
+
 async function refresh() {
   try {
-    const stats = await fetch('/api/stats').then(r => r.json());
-    document.getElementById('paper-total').textContent = stats.paper.total;
-    document.getElementById('paper-winrate').textContent = (stats.paper.win_rate * 100).toFixed(1) + '%';
-    document.getElementById('paper-pnl').innerHTML = fmt_pnl(stats.paper.pnl);
-    document.getElementById('live-pnl').innerHTML = fmt_pnl(stats.live.pnl);
+    const d = await fetch('/api/stats').then(r => r.json());
 
-    const trades = stats.paper.total;
-    const wr = stats.paper.win_rate;
-    document.getElementById('gate-trades').textContent = trades;
-    document.getElementById('gate-wr').textContent = (wr * 100).toFixed(1) + '%';
-    const pct = Math.min(100, (trades / 200) * 50 + (wr / 0.8) * 50);
-    document.getElementById('gate-bar').style.width = pct + '%';
+    // Mode banner
+    const banner = document.getElementById('mode-banner');
+    if (!d.paper_mode) {
+      banner.className = 'mode-banner live';
+      banner.textContent = '⚠️ LIVE MODE — Real money at risk';
+    }
 
-    const rows = await fetch('/api/recent_trades').then(r => r.json());
-    const tbody = document.getElementById('trades-table');
-    tbody.innerHTML = rows.length ? rows.map(r => `
-      <tr>
-        <td>${fmt_time(r.timestamp)}</td>
-        <td>${r.strategy || '—'}</td>
-        <td>${r.venue || '—'}</td>
-        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.market_id || '—'}</td>
-        <td>${r.side || '—'}</td>
-        <td>$${(r.size || 0).toFixed(2)}</td>
-        <td>${r.resolved ? (r.won ? '<span class="win">WIN</span>' : '<span class="loss">LOSS</span>') : '<span style="color:#888">Open</span>'}</td>
-      </tr>`).join('') : '<tr><td colspan="7" style="color:#444">No trades yet</td></tr>';
+    // Stats
+    const wr = d.wr || 0;
+    const total = d.total || 0;
+    document.getElementById('s-total').textContent = total;
+    const wrEl = document.getElementById('s-wr');
+    wrEl.textContent = wr.toFixed(1) + '%';
+    wrEl.className = 'card-value ' + (wr >= 72 ? 'green' : wr >= 60 ? 'amber' : 'red');
+    const pnlEl = document.getElementById('s-pnl');
+    pnlEl.textContent = (d.pnl >= 0 ? '+' : '') + '$' + (d.pnl || 0).toFixed(2);
+    pnlEl.className = 'card-value ' + (d.pnl >= 0 ? 'green' : 'red');
+    document.getElementById('s-open').textContent = (d.open_positions || []).length;
 
-    const whales = await fetch('/api/whale_moves').then(r => r.json());
-    const wtbody = document.getElementById('whale-table');
-    wtbody.innerHTML = whales.length ? whales.map(w => `
-      <tr>
-        <td>${fmt_time(w.timestamp)}</td>
-        <td>${(w.wallet || '').substring(0,12)}...</td>
-        <td style="max-width:150px;overflow:hidden">${w.market || '—'}</td>
-        <td>${w.side || '—'}</td>
-        <td>$${(w.size || 0).toLocaleString()}</td>
-      </tr>`).join('') : '<tr><td colspan="5" style="color:#444">No whale moves detected</td></tr>';
+    // Gate progress
+    document.getElementById('g-trades').textContent = total;
+    document.getElementById('g-wr').textContent = wr.toFixed(1) + '%';
+    document.getElementById('g-trades-bar').style.width = Math.min(100, total) + '%';
+    document.getElementById('g-wr-bar').style.width = Math.min(100, (wr / 72) * 100) + '%';
+    document.getElementById('g-status').textContent = d.gate_passed
+      ? '✅ Gate passed — ready for live'
+      : `⏳ Need ${Math.max(0, 100 - total)} more trades, WR ≥ 72%`;
 
-    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-  } catch(e) { console.error('Refresh error:', e); }
+    // Health
+    const h = d.health || {};
+    document.getElementById('h-binance').className = 'health-dot ' + (h.binance_ok ? 'ok' : 'err');
+    document.getElementById('h-poly').className    = 'health-dot ' + (h.polymarket_ok ? 'ok' : 'err');
+    document.getElementById('h-time').textContent  = 'Last check: ' + (h.timestamp ? new Date(h.timestamp * 1000).toLocaleTimeString() : '—');
+
+    // Strategies
+    const strats = d.strategies || [];
+    document.getElementById('strat-table').innerHTML = strats.length
+      ? strats.map(s => `
+        <tr>
+          <td>${stratBadge(s.name)}</td>
+          <td>${s.trades}</td>
+          <td>${s.wins}</td>
+          <td class="${s.wr >= 72 ? 'win' : s.wr >= 50 ? '' : 'loss'}">${s.wr.toFixed(1)}%</td>
+          <td>${fmtPnl(s.pnl)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" style="color:#2a3540">No resolved trades yet</td></tr>';
+
+    // Open positions
+    const opens = d.open_positions || [];
+    document.getElementById('op-count').textContent = opens.length;
+    document.getElementById('open-table').innerHTML = opens.length
+      ? opens.map(p => `
+        <tr>
+          <td>${stratBadge(p.strategy)}</td>
+          <td style="max-width:220px">${p.market_id || '—'}</td>
+          <td class="${p.side === 'YES' ? 'win' : 'loss'}">${p.side}</td>
+          <td>$${(p.entry_price || 0).toFixed(3)}</td>
+          <td>$${(p.size || 0).toFixed(0)}</td>
+          <td style="color:#556070">${ageStr(p.age_min)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" style="color:#2a3540">No open positions</td></tr>';
+
+    // Recent resolved
+    const recent = d.recent_trades || [];
+    document.getElementById('recent-table').innerHTML = recent.length
+      ? recent.map(t => `
+        <tr>
+          <td style="color:#405060">${t.time}</td>
+          <td>${stratBadge(t.strategy)}</td>
+          <td class="${t.side === 'YES' ? 'win' : 'loss'}">${t.side}</td>
+          <td>$${(t.entry || 0).toFixed(3)}</td>
+          <td>$${(t.exit || 0).toFixed(3)}</td>
+          <td>${fmtPnl(t.pnl)}</td>
+          <td>${t.won ? '<span class="win">WIN</span>' : '<span class="loss">LOSS</span>'}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="7" style="color:#2a3540">No resolved trades yet</td></tr>';
+
+    document.getElementById('footer').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    console.error('Refresh error:', e);
+  }
 }
+
 refresh();
+setInterval(refresh, 10000);
 </script>
 </body>
 </html>
