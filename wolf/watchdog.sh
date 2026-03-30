@@ -23,7 +23,7 @@ while true; do
     fi
 
     echo "$(date) [watchdog] Launching Wolf..." | tee -a "$LOG"
-    python3 main.py >> "$LOG" 2>&1 &
+    python3 -u main.py 2>&1 &
     WOLF_PID=$!
     echo $WOLF_PID > "$PIDFILE"
     echo "$(date) [watchdog] Wolf PID: $WOLF_PID" | tee -a "$LOG"
