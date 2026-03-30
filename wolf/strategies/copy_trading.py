@@ -155,7 +155,11 @@ class CopyTrader:
                 if not activity:
                     continue
 
-                latest = activity[0]
+                # Filter to TRADE events only — skip REDEEM/MERGE/SPLIT (no signal value)
+                trades_only = [a for a in activity if a.get("type","").upper() in ("TRADE","BUY","SELL","") and a.get("side","")]
+                if not trades_only:
+                    continue
+                latest = trades_only[0]
                 trade_id = latest.get("transactionHash", "")
                 market_id_check = latest.get("conditionId", "")
 
@@ -220,7 +224,7 @@ class CopyTrader:
                 confidence = max(base_confidence, learned_floor)
 
                 # Only fire on highest-conviction setups
-                if confidence >= max(learned_floor, 0.72):  # Floor: 0.72 — quality + volume balance
+                if confidence >= max(learned_floor, config.MIN_CONFIDENCE):  # Floor: config.MIN_CONFIDENCE (0.68)
                     signals.append({
                         "strategy": "copy_trading",
                         "venue": "polymarket",

@@ -112,6 +112,7 @@ async def main():
     from strategies.kalshi_copy import KalshiCopyTrader
     from strategies.near_expiry import NearExpiryStrategy
     from strategies.ta_signal import TASignalStrategy
+    from strategies.value_bet import ValueBetStrategy
     from strategies.cross_platform_arb import CrossPlatformArb
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
@@ -132,6 +133,7 @@ async def main():
     kalshi_copy       = KalshiCopyTrader()
     near_expiry       = NearExpiryStrategy()
     ta_signal         = TASignalStrategy()
+    value_bet         = ValueBetStrategy()
     cross_platform    = CrossPlatformArb()
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
@@ -263,6 +265,19 @@ async def main():
                         )
             except Exception as e:
                 logger.warning(f"TA signal error: {e}")
+
+            # Priority 4c: Value Bet (near-certain + strong signal markets)
+            try:
+                for sig in await value_bet.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] ValueBet: "
+                            f"{sig['side']}@{sig['entry_price']:.2f} "
+                            f"conf={sig['confidence']:.2f} {sig.get('reason','')[:60]}"
+                        )
+            except Exception as e:
+                logger.warning(f"Value bet error: {e}")
 
             # Priority 5: Near-Expiry (high-confidence, near-certain outcomes)
             # NOTE: near_expiry scans Polymarket only until KALSHI_ENABLED=true
