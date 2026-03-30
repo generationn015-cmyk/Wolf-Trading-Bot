@@ -103,6 +103,13 @@ class ValueBetStrategy:
                         pass
                 m["_days_to_expiry"] = days_out
 
+                # Paper mode: prefer short-duration markets to get real resolutions quickly
+                # Skip very long-term markets during paper test (no data feedback for months)
+                import config as _cfg
+                max_days = 30 if _cfg.PAPER_MODE else 365
+                if days_out > max_days and days_out != 999:
+                    continue
+
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1
                 m["_volume"]    = vol
@@ -208,7 +215,7 @@ class ValueBetStrategy:
                     "days_to_expiry": market.get("_days_to_expiry", 999),
                     "reason":      f"ValueBet: {reason} | {q[:40]}",
                 })
-                logger.info(f"📈 ValueBet: {reason} | {q[:40]}")
+                logger.debug(f"📈 ValueBet: {reason} | {q[:40]}")
 
             if len(signals) >= 3:
                 break
