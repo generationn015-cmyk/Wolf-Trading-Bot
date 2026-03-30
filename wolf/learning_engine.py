@@ -164,6 +164,37 @@ class LearningEngine:
         """Returns weight multiplier for a wallet (1.0 = normal, 0.3 = penalized)."""
         return self.wallet_penalty.get(wallet_addr, 1.0)
 
+    def ingest_analytics(self, report: dict):
+        """
+        Consume a structured analytics report and apply its lessons.
+        Called by main loop after each hourly report.
+        """
+        for bucket in report.get("price_buckets", []):
+            if bucket.get("total", 0) >= 5 and bucket["win_rate"] < 0.50:
+                # Parse range string e.g. "0.1–0.2"
+                try:
+                    lo_str, hi_str = bucket["range"].split("–")
+                    lo, hi = float(lo_str), float(hi_str)
+                    entry = (lo, hi)
+                    if entry not in self.bad_price_ranges:
+                        self.bad_price_ranges.append(entry)
+                        msg = f"Analytics blocked price range {bucket['range']} (WR {bucket['win_rate']:.1%})"
+                        self.lesson_log.append(msg)
+                        logger.info(f"📚 {msg}")
+                except Exception:
+                    pass
+
+        for strat, data in report.get("by_strategy", {}).items():
+            if data.get("total", 0) < 10:
+                continue
+            wr = data["win_rate"]
+            if wr < 0.60:
+                new_floor = min(0.85, self.min_confidence_overrides.get(strat, 0.65) + 0.03)
+                self.min_confidence_overrides[strat] = new_floor
+                msg = f"Analytics raised {strat} floor to {new_floor:.2f} (WR {wr:.1%})"
+                self.lesson_log.append(msg)
+                logger.info(f"📚 {msg}")
+
     def get_status(self) -> str:
         floors = self.min_confidence_overrides
         return (

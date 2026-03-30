@@ -1,7 +1,7 @@
 """
 Wolf Trading Bot — Trade Journal
 SQLite storage for all trades, signals, health checks, paper trades.
-Every decision logged. Nothing forgotten.
+Every decision logged. Nothing forgotten. Duplicates blocked at DB level.
 """
 import sqlite3
 import json
@@ -12,6 +12,7 @@ import os
 import config
 
 logger = logging.getLogger("wolf.journal")
+
 
 class TradeLogger:
     def __init__(self, db_path: str = None):
@@ -38,6 +39,7 @@ class TradeLogger:
                     reason TEXT,
                     meta TEXT
                 );
+
                 CREATE TABLE IF NOT EXISTS paper_trades (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp REAL,
@@ -53,8 +55,10 @@ class TradeLogger:
                     resolved INTEGER DEFAULT 0,
                     confidence REAL,
                     edge REAL,
-                    reason TEXT
+                    reason TEXT,
+                    UNIQUE(strategy, market_id, side, resolved, CAST(timestamp/300 AS INTEGER))
                 );
+
                 CREATE TABLE IF NOT EXISTS signals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp REAL,
@@ -68,6 +72,7 @@ class TradeLogger:
                     block_reason TEXT,
                     meta TEXT
                 );
+
                 CREATE TABLE IF NOT EXISTS health_checks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp REAL,
@@ -102,10 +107,16 @@ class TradeLogger:
             conn.commit()
 
     def log_paper_trade(self, trade: dict):
+        """
+        Insert a paper trade. Uses INSERT OR IGNORE to silently drop duplicates
+        within the same 5-minute window (strategy + market_id + side + resolved + bucket).
+        Returns True if inserted, False if deduplicated.
+        """
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                INSERT INTO paper_trades (timestamp, strategy, venue, market_id, side, size,
-                    entry_price, exit_price, pnl, won, resolved, confidence, edge, reason)
+            cur = conn.execute("""
+                INSERT OR IGNORE INTO paper_trades
+                    (timestamp, strategy, venue, market_id, side, size,
+                     entry_price, exit_price, pnl, won, resolved, confidence, edge, reason)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 trade.get("timestamp", time.time()),
@@ -118,6 +129,25 @@ class TradeLogger:
                 trade.get("confidence"), trade.get("edge"),
                 trade.get("reason"),
             ))
+            conn.commit()
+            inserted = cur.rowcount > 0
+            if not inserted:
+                logger.debug(
+                    f"Dedup blocked: {trade.get('strategy')} "
+                    f"{trade.get('market_id','')[:16]}… {trade.get('side')}"
+                )
+            return inserted
+
+    def update_paper_trade_resolved(self, market_id: str, strategy: str,
+                                     side: str, won: bool, exit_price: float,
+                                     pnl: float):
+        """Update an open paper trade to resolved status."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                UPDATE paper_trades
+                SET resolved=1, won=?, exit_price=?, pnl=?
+                WHERE market_id=? AND strategy=? AND side=? AND resolved=0
+            """, (1 if won else 0, exit_price, pnl, market_id, strategy, side))
             conn.commit()
 
     def log_signal(self, signal: dict, executed: bool = False, block_reason: str = ""):
@@ -133,7 +163,8 @@ class TradeLogger:
                 signal.get("confidence"), signal.get("edge"),
                 1 if executed else 0, block_reason,
                 json.dumps({k: v for k, v in signal.items() if k not in
-                            ["timestamp","strategy","venue","market_id","side","confidence","edge"]}),
+                            ["timestamp","strategy","venue","market_id",
+                             "side","confidence","edge"]}),
             ))
             conn.commit()
 
@@ -156,43 +187,80 @@ class TradeLogger:
 
     def get_stats(self) -> dict:
         with sqlite3.connect(self.db_path) as conn:
-            # Paper trade stats
             paper = conn.execute("""
                 SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), SUM(pnl)
                 FROM paper_trades WHERE resolved=1
             """).fetchone()
             total_p = paper[0] or 0
-            wins_p = paper[1] or 0
-            pnl_p = paper[2] or 0.0
+            wins_p  = paper[1] or 0
+            pnl_p   = paper[2] or 0.0
 
-            # Live trade stats
             live = conn.execute("""
                 SELECT COUNT(*), SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END), SUM(pnl)
                 FROM trades WHERE status='closed'
             """).fetchone()
             total_l = live[0] or 0
-            wins_l = live[1] or 0
-            pnl_l = live[2] or 0.0
+            wins_l  = live[1] or 0
+            pnl_l   = live[2] or 0.0
+
+            # Per-strategy breakdown (paper)
+            strat_rows = conn.execute("""
+                SELECT strategy,
+                       COUNT(*) as total,
+                       SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
+                       SUM(pnl) as pnl,
+                       AVG(confidence) as avg_conf,
+                       AVG(entry_price) as avg_price
+                FROM paper_trades WHERE resolved=1
+                GROUP BY strategy
+            """).fetchall()
+            by_strategy = {}
+            for row in strat_rows:
+                s = row[0]
+                by_strategy[s] = {
+                    "total": row[1], "wins": row[2],
+                    "win_rate": row[2]/row[1] if row[1] else 0,
+                    "pnl": row[3] or 0.0,
+                    "avg_confidence": row[4] or 0.0,
+                    "avg_price": row[5] or 0.0,
+                }
 
             return {
                 "paper": {
-                    "total": total_p,
-                    "wins": wins_p,
+                    "total": total_p, "wins": wins_p,
                     "win_rate": wins_p / total_p if total_p else 0,
                     "pnl": pnl_p,
+                    "by_strategy": by_strategy,
                 },
                 "live": {
-                    "total": total_l,
-                    "wins": wins_l,
+                    "total": total_l, "wins": wins_l,
                     "win_rate": wins_l / total_l if total_l else 0,
                     "pnl": pnl_l,
                 },
             }
 
+    def get_recent_trades(self, limit: int = 100, strategy: str = None) -> list[dict]:
+        """Return recent resolved paper trades for analysis."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            q = "SELECT * FROM paper_trades WHERE resolved=1"
+            params = []
+            if strategy:
+                q += " AND strategy=?"
+                params.append(strategy)
+            q += " ORDER BY timestamp DESC LIMIT ?"
+            params.append(limit)
+            rows = conn.execute(q, params).fetchall()
+            return [dict(r) for r in rows]
+
     def export_csv(self, output_path: str = "/tmp/wolf_trades.csv"):
         with sqlite3.connect(self.db_path) as conn:
-            rows = conn.execute("SELECT * FROM paper_trades ORDER BY timestamp DESC").fetchall()
-            cols = [d[0] for d in conn.execute("SELECT * FROM paper_trades LIMIT 0").description]
+            rows = conn.execute(
+                "SELECT * FROM paper_trades ORDER BY timestamp DESC"
+            ).fetchall()
+            cols = [d[0] for d in conn.execute(
+                "SELECT * FROM paper_trades LIMIT 0"
+            ).description]
         with open(output_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(cols)

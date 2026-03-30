@@ -1,0 +1,266 @@
+{
+  "period_hours": 24,
+  "generated_at": 1774838999.7324226,
+  "overall": {
+    "total_trades": 70,
+    "wins": 50,
+    "losses": 20,
+    "win_rate": 0.7142857142857143,
+    "total_pnl": 1018.97,
+    "avg_pnl_per_trade": 14.56,
+    "best_trade": 72.0,
+    "worst_trade": -59.81,
+    "avg_confidence": 0
+  },
+  "by_strategy": {
+    "copy_trading": {
+      "total": 68,
+      "wins": 49,
+      "win_rate": 0.721,
+      "pnl": 1045.09,
+      "avg_pnl": 15.37,
+      "avg_confidence": 0,
+      "avg_price": 0.53,
+      "best": 72.0,
+      "worst": -59.81
+    },
+    "market_making": {
+      "total": 2,
+      "wins": 1,
+      "win_rate": 0.5,
+      "pnl": -26.12,
+      "avg_pnl": -13.06,
+      "avg_confidence": 0,
+      "avg_price": 0.312,
+      "best": 10.28,
+      "worst": -36.4
+    }
+  },
+  "price_buckets": [
+    {
+      "range": "0.0\u20130.1",
+      "total": 1,
+      "win_rate": 1.0,
+      "pnl": 10.28,
+      "flag": ""
+    },
+    {
+      "range": "0.1\u20130.2",
+      "total": 7,
+      "win_rate": 0.571,
+      "pnl": 236.0,
+      "flag": ""
+    },
+    {
+      "range": "0.3\u20130.4",
+      "total": 3,
+      "win_rate": 0.667,
+      "pnl": 85.6,
+      "flag": ""
+    },
+    {
+      "range": "0.4\u20130.5",
+      "total": 2,
+      "win_rate": 1.0,
+      "pnl": 83.2,
+      "flag": ""
+    },
+    {
+      "range": "0.5\u20130.6",
+      "total": 41,
+      "win_rate": 0.634,
+      "pnl": 412.44,
+      "flag": ""
+    },
+    {
+      "range": "0.7\u20130.8",
+      "total": 9,
+      "win_rate": 0.889,
+      "pnl": 112.56,
+      "flag": "\u2705 strong"
+    },
+    {
+      "range": "0.8\u20130.9",
+      "total": 4,
+      "win_rate": 1.0,
+      "pnl": 61.6,
+      "flag": ""
+    },
+    {
+      "range": "0.9\u20131.0",
+      "total": 3,
+      "win_rate": 1.0,
+      "pnl": 17.28,
+      "flag": ""
+    }
+  ],
+  "hourly_performance": [
+    {
+      "hour_et": 21,
+      "total": 20,
+      "win_rate": 0.6,
+      "pnl": 175.37
+    },
+    {
+      "hour_et": 22,
+      "total": 50,
+      "win_rate": 0.76,
+      "pnl": 843.59
+    }
+  ],
+  "worst_losses": [
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.7476586917562724,
+      "side": "YES",
+      "pnl": -59.81,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.52000000001728,
+      "side": "YES",
+      "pnl": -41.6,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.51,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.51,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.51,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5099999999962626,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5099999999962626,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5099999999962626,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.51,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.51,
+      "side": "YES",
+      "pnl": -40.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5,
+      "side": "YES",
+      "pnl": -40.0,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5,
+      "side": "YES",
+      "pnl": -40.0,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5,
+      "side": "YES",
+      "pnl": -40.0,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5,
+      "side": "YES",
+      "pnl": -40.0,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.5,
+      "side": "YES",
+      "pnl": -40.0,
+      "reason": ""
+    },
+    {
+      "strategy": "market_making",
+      "entry_price": 0.525,
+      "side": "YES",
+      "pnl": -36.4,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.31,
+      "side": "NO",
+      "pnl": -24.8,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.17,
+      "side": "YES",
+      "pnl": -13.6,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.17,
+      "side": "YES",
+      "pnl": -13.6,
+      "reason": ""
+    },
+    {
+      "strategy": "copy_trading",
+      "entry_price": 0.16,
+      "side": "YES",
+      "pnl": -12.8,
+      "reason": ""
+    }
+  ],
+  "wallet_performance": [
+    {
+      "wallet": null,
+      "total": 68,
+      "win_rate": 0.721,
+      "pnl": 1045.09
+    }
+  ],
+  "lessons": [
+    "\ud83d\udfe1 Overall WR 71.4% \u2014 on track. Monitor closely.",
+    "\ud83d\udca1 Price range 0.7\u20130.8: 88.9% WR \u2014 high edge zone, prioritize",
+    "\u23f0 Best hour: 22:00 ET (76.0% WR, $+844)"
+  ]
+}

@@ -108,6 +108,7 @@ async def main():
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
     from learning_engine import learning
+    from analytics.log_analyzer import analyzer as log_analyzer
 
     journal = TradeLogger()
     risk    = RiskEngine(starting_balance=1000.0)
@@ -164,11 +165,13 @@ async def main():
     )
 
     # ─── Main Trading Loop ────────────────────────────────────────────────────
-    SCAN_INTERVAL    = 5    # seconds between strategy scans
-    RESOLVE_INTERVAL = 30   # seconds between paper trade resolution
-    STATUS_INTERVAL  = 60   # seconds between status log (1 min for visibility)
+    SCAN_INTERVAL    = 5     # seconds between strategy scans
+    RESOLVE_INTERVAL = 30    # seconds between paper trade resolution
+    STATUS_INTERVAL  = 60    # seconds between status log (1 min)
+    REPORT_INTERVAL  = 3600  # full analytics report every hour
     last_resolve = 0.0
     last_status  = 0.0
+    last_report  = 0.0
     gate_alerted = False    # alert Jefe once when milestone hit — never halt
 
     try:
@@ -253,6 +256,26 @@ async def main():
                         logger.info(f"🧠 {learning.get_status()}")
             except Exception as e:
                 logger.warning(f"Learning engine error: {e}")
+
+            # ── Hourly analytics report ──────────────────────────────────────
+            if now - last_report > REPORT_INTERVAL:
+                last_report = now
+                try:
+                    report = log_analyzer.analyze_trades(hours=24)
+                    lessons = report.get("lessons", [])
+                    wr = report["overall"]["win_rate"]
+                    pnl = report["overall"]["total_pnl"]
+                    total = report["overall"]["total_trades"]
+                    logger.info(
+                        f"📋 Analytics: {total} trades | WR {wr:.1%} | PnL ${pnl:+.2f} | "
+                        f"{len(lessons)} lessons"
+                    )
+                    for lesson in lessons[:3]:
+                        logger.info(f"   → {lesson}")
+                    # Feed structured insights into learning engine
+                    learning.ingest_analytics(report)
+                except Exception as e:
+                    logger.warning(f"Analytics error: {e}")
 
             # ── Gate milestone check ─────────────────────────────────────────
             # ALERT ONLY — wolf NEVER stops paper trading on its own
