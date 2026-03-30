@@ -18,6 +18,31 @@ import config
 
 logger = logging.getLogger("wolf.alerts")
 
+# ── Alert rate limiter ────────────────────────────────────────────────────────
+# Prevents spam when multiple strategies fire on the same market.
+# Max 1 entry alert per (strategy+market_id) per 30 minutes.
+# Max 6 trade alerts per minute total (hard ceiling).
+_alert_sent: dict[str, float] = {}   # key → last sent timestamp
+_minute_count: list[float] = []      # timestamps of alerts in last 60s
+_DEDUP_WINDOW = 1800   # 30 min — same trade won't double-alert
+_MAX_PER_MIN  = 6      # hard ceiling on alerts/minute
+
+def _rate_ok(key: str) -> bool:
+    """Return True if this alert should be sent, False if throttled."""
+    global _minute_count
+    now = time.time()
+    # Per-key dedup
+    if now - _alert_sent.get(key, 0) < _DEDUP_WINDOW:
+        return False
+    # Per-minute ceiling
+    _minute_count = [t for t in _minute_count if now - t < 60]
+    if len(_minute_count) >= _MAX_PER_MIN:
+        logger.debug(f"Alert rate limit hit — suppressing {key[:30]}")
+        return False
+    _alert_sent[key] = now
+    _minute_count.append(now)
+    return True
+
 # ── Internal send ─────────────────────────────────────────────────────────────
 def _send(text: str, parse_mode: str = "Markdown") -> bool:
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
@@ -60,11 +85,12 @@ def alert_trade_entry(
     🎯 Conf: 85%
     Will the Avalanche win the 2026 NHL?
     """
-    if paper:
-        logger.info(f"[PAPER ENTRY] {strategy} {side}@{entry_price:.3f} ${size:.2f}")
+    key = f"entry:{strategy}:{market[:40]}:{side}"
+    if not _rate_ok(key):
+        logger.debug(f"Entry alert suppressed (rate limit): {key[:50]}")
         return
 
-    mode = "🔴 LIVE"
+    mode = "📋 PAPER" if paper else "🔴 LIVE"
     short_market = market[:50] + "…" if len(market) > 50 else market
     text = (
         f"{mode} | {strategy}\n"
@@ -93,12 +119,7 @@ def alert_trade_exit(
     💰 +$75.20  ·  4h 12m
     Will the Avalanche win the 2026 NHL?
     """
-    if paper:
-        result = "WIN ✅" if won else "LOSS ❌"
-        logger.info(f"[PAPER EXIT] {result} {strategy} {side} P&L ${pnl:+.2f} ({hold_time_min:.0f}m)")
-        return
-
-    icon = "✅ WIN" if won else "❌ LOSS"
+    icon = ("✅ WIN" if won else "❌ LOSS") + (" 📋" if paper else "")
     hold = _fmt_duration(hold_time_min)
     short_market = market[:50] + "…" if len(market) > 50 else market
     text = (
