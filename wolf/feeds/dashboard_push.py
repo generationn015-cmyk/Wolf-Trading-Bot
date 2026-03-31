@@ -133,6 +133,7 @@ def push_to_dashboard(force: bool = False) -> bool:
         })
 
         # ── 2. Performance ────────────────────────────────────────────────────
+        balance = round(config.PAPER_STARTING_CAPITAL + total_pnl, 2)
         _post("performance", {
             "dailyPnl":    round(daily_pnl, 2),
             "weeklyPnl":   round(weekly_pnl, 2),
@@ -142,6 +143,8 @@ def push_to_dashboard(force: bool = False) -> bool:
             "winStreak":   streak,
             "bestStreak":  best,
             "totalProfit": round(total_pnl, 2),
+            "balance":     balance,
+            "paperMode":   config.PAPER_MODE,
         })
 
         # ── 3. Open positions ─────────────────────────────────────────────────
