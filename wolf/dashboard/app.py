@@ -150,7 +150,7 @@ def fetch_stats():
     conn.close()
 
     return {
-        "balance": round(1000 + pnl, 2),
+        "balance": round(config.PAPER_STARTING_CAPITAL + pnl, 2),
         "pnl": pnl, "total": total, "wins": wins, "losses": total - wins,
         "wr": wr, "avg_conf": avg_conf or 0,
         "best_trade": best or 0, "worst_trade": worst or 0,
@@ -169,6 +169,22 @@ def fetch_stats():
 @app.get("/api/stats")
 def api_stats():
     return JSONResponse(fetch_stats())
+
+@app.get("/api/watchlist")
+def api_watchlist():
+    """Return top 20 Polymarket wallets Wolf is watching."""
+    from feeds.polymarket_feed import get_top_wallets
+    wallets = get_top_wallets(limit=20)
+    result = []
+    for i, w in enumerate(wallets):
+        result.append({
+            "rank": i + 1,
+            "username": w.get("userName") or w.get("wallet", "")[:12] + "…",
+            "wallet": w.get("wallet", ""),
+            "pnl": round(w.get("profit", 0), 2),
+            "vol": round(w.get("vol", 0), 2),
+        })
+    return JSONResponse(result)
 
 @app.get("/api/logs")
 def api_logs():

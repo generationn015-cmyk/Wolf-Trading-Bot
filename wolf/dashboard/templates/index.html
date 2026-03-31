@@ -8,8 +8,8 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #080c10; color: #c8d0da; min-height: 100vh; padding: 24px; }
   h1 { color: #e8f0fb; font-size: 1.4em; font-weight: 600; margin-bottom: 4px; }
-  .subtitle { color: #556070; font-size: 0.85em; margin-bottom: 24px; }
-  .mode-banner { padding: 10px 18px; border-radius: 6px; font-weight: 600; font-size: 0.9em; margin-bottom: 24px; display: inline-block; }
+  .subtitle { color: #556070; font-size: 0.85em; margin-bottom: 18px; }
+  .mode-banner { padding: 10px 18px; border-radius: 6px; font-weight: 600; font-size: 0.9em; margin-bottom: 20px; display: inline-block; }
   .paper { background: #0f2318; border: 1px solid #1a5c30; color: #34c76a; }
   .live  { background: #2a0a0a; border: 1px solid #8b1a1a; color: #ff5555; }
   .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
@@ -20,6 +20,11 @@
   .card-value.green { color: #34c76a; }
   .card-value.red   { color: #ff5555; }
   .card-value.amber { color: #f0a040; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #1a2535; }
+  .tab  { padding: 8px 18px; font-size: 0.82em; font-weight: 600; color: #405060; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .tab.active { color: #5599ff; border-bottom-color: #5599ff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
   .section { margin-bottom: 24px; }
   .section-title { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.1em; color: #405060; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #1a2535; }
   table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
@@ -42,6 +47,8 @@
   .ok   { background: #34c76a; }
   .err  { background: #ff5555; }
   .warn { background: #f0a040; }
+  .rank-badge { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: #1a2535; color: #5599ff; font-size: 0.72em; font-weight: 700; text-align: center; line-height: 22px; }
+  .wallet-addr { font-family: monospace; font-size: 0.75em; color: #405060; }
   footer { color: #2a3540; font-size: 0.72em; margin-top: 20px; }
   @media (max-width: 700px) { .grid4 { grid-template-columns: repeat(2, 1fr); } .grid3 { grid-template-columns: 1fr; } }
 </style>
@@ -56,20 +63,20 @@
 <!-- Stats row -->
 <div class="grid4">
   <div class="card">
-    <div class="card-label">Resolved Trades</div>
-    <div class="card-value" id="s-total">—</div>
-  </div>
-  <div class="card">
-    <div class="card-label">Win Rate</div>
-    <div class="card-value" id="s-wr">—</div>
+    <div class="card-label">Balance</div>
+    <div class="card-value green" id="s-balance">—</div>
   </div>
   <div class="card">
     <div class="card-label">Total P&amp;L</div>
     <div class="card-value" id="s-pnl">—</div>
   </div>
   <div class="card">
-    <div class="card-label">Open Positions</div>
-    <div class="card-value amber" id="s-open">—</div>
+    <div class="card-label">Win Rate</div>
+    <div class="card-value" id="s-wr">—</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Resolved / Open</div>
+    <div class="card-value amber" id="s-counts">—</div>
   </div>
 </div>
 
@@ -89,47 +96,98 @@
   </div>
 </div>
 
-<!-- System health -->
-<div class="section">
-  <div class="section-title">System Health</div>
-  <div style="font-size:0.82em; display:flex; gap:24px; flex-wrap:wrap;">
-    <span><span class="health-dot ok" id="h-binance"></span>Binance</span>
-    <span><span class="health-dot ok" id="h-poly"></span>Polymarket</span>
-    <span><span class="health-dot err" id="h-kalshi"></span>Kalshi (disabled)</span>
-    <span style="color:#405060;" id="h-time">—</span>
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')">Overview</div>
+  <div class="tab" onclick="switchTab('positions')">Positions</div>
+  <div class="tab" onclick="switchTab('trades')">Recent Trades</div>
+  <div class="tab" onclick="switchTab('hunt')">🎯 Hunt</div>
+  <div class="tab" onclick="switchTab('logs')">Logs</div>
+</div>
+
+<!-- OVERVIEW TAB -->
+<div id="tab-overview" class="tab-panel active">
+
+  <!-- System health -->
+  <div class="section">
+    <div class="section-title">System Health</div>
+    <div style="font-size:0.82em; display:flex; gap:24px; flex-wrap:wrap;">
+      <span><span class="health-dot ok" id="h-binance"></span>Binance</span>
+      <span><span class="health-dot ok" id="h-poly"></span>Polymarket</span>
+      <span><span class="health-dot err" id="h-kalshi"></span>Kalshi (disabled)</span>
+      <span style="color:#405060;" id="h-time">—</span>
+    </div>
+  </div>
+
+  <!-- Strategy breakdown -->
+  <div class="section">
+    <div class="section-title">Strategy Breakdown</div>
+    <table>
+      <thead><tr><th>Strategy</th><th>Trades</th><th>Wins</th><th>Win Rate</th><th>P&amp;L</th></tr></thead>
+      <tbody id="strat-table"><tr><td colspan="5" style="color:#2a3540">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- POSITIONS TAB -->
+<div id="tab-positions" class="tab-panel">
+  <div class="section">
+    <div class="section-title">Open Positions (<span id="op-count">0</span>)</div>
+    <table>
+      <thead><tr><th>Strategy</th><th>Market</th><th>Side</th><th>Entry</th><th>Size</th><th>Age</th></tr></thead>
+      <tbody id="open-table"><tr><td colspan="6" style="color:#2a3540">Loading…</td></tr></tbody>
+    </table>
   </div>
 </div>
 
-<!-- Strategy breakdown -->
-<div class="section">
-  <div class="section-title">Strategy Breakdown</div>
-  <table>
-    <thead><tr><th>Strategy</th><th>Trades</th><th>Wins</th><th>Win Rate</th><th>P&amp;L</th></tr></thead>
-    <tbody id="strat-table"><tr><td colspan="5" style="color:#2a3540">Loading…</td></tr></tbody>
-  </table>
+<!-- TRADES TAB -->
+<div id="tab-trades" class="tab-panel">
+  <div class="section">
+    <div class="section-title">Recent Resolved Trades</div>
+    <table>
+      <thead><tr><th>Time</th><th>Strategy</th><th>Side</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Result</th></tr></thead>
+      <tbody id="recent-table"><tr><td colspan="7" style="color:#2a3540">Loading…</td></tr></tbody>
+    </table>
+  </div>
 </div>
 
-<!-- Open positions -->
-<div class="section">
-  <div class="section-title">Open Positions (<span id="op-count">0</span>)</div>
-  <table>
-    <thead><tr><th>Strategy</th><th>Market</th><th>Side</th><th>Entry</th><th>Size</th><th>Age</th></tr></thead>
-    <tbody id="open-table"><tr><td colspan="6" style="color:#2a3540">Loading…</td></tr></tbody>
-  </table>
+<!-- HUNT TAB -->
+<div id="tab-hunt" class="tab-panel">
+  <div class="section">
+    <div class="section-title">🎯 Top 20 Wallet Watchlist — Copy Trading Targets</div>
+    <table>
+      <thead><tr><th>#</th><th>Username</th><th>All-Time P&amp;L</th><th>Volume</th><th>Wallet</th></tr></thead>
+      <tbody id="hunt-table"><tr><td colspan="5" style="color:#2a3540">Loading…</td></tr></tbody>
+    </table>
+  </div>
 </div>
 
-<!-- Recent resolved trades -->
-<div class="section">
-  <div class="section-title">Recent Resolved Trades</div>
-  <table>
-    <thead><tr><th>Time</th><th>Strategy</th><th>Side</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Result</th></tr></thead>
-    <tbody id="recent-table"><tr><td colspan="7" style="color:#2a3540">Loading…</td></tr></tbody>
-  </table>
+<!-- LOGS TAB -->
+<div id="tab-logs" class="tab-panel">
+  <div class="section">
+    <div class="section-title">Wolf Log (last 100 lines)</div>
+    <pre id="log-box" style="background:#0a1018;border:1px solid #1a2535;border-radius:6px;padding:14px;font-size:0.72em;color:#556070;max-height:500px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">Loading…</pre>
+  </div>
 </div>
 
 <footer id="footer">Last updated: —</footer>
 
 <script>
+let currentTab = 'overview';
+let huntLoaded = false;
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['overview','positions','trades','hunt','logs'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  currentTab = name;
+  if (name === 'hunt' && !huntLoaded) loadHunt();
+  if (name === 'logs') loadLogs();
+}
+
 function stratBadge(s) {
   if (!s) return '';
   const k = s.toLowerCase();
@@ -141,7 +199,11 @@ function stratBadge(s) {
 function pnlClass(v) { return v >= 0 ? 'win' : 'loss'; }
 function fmtPnl(v) {
   if (v == null) return '—';
-  return `<span class="${pnlClass(v)}">${v >= 0 ? '+' : ''}$${Math.abs(v).toFixed(2)}</span>`;
+  return `<span class="${pnlClass(v)}">${v >= 0 ? '+' : '-'}$${Math.abs(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>`;
+}
+function fmtUsd(v) {
+  if (!v && v !== 0) return '—';
+  return '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function ageStr(min) {
   if (min < 60) return `${Math.round(min)}m`;
@@ -159,26 +221,31 @@ async function refresh() {
       banner.textContent = '⚠️ LIVE MODE — Real money at risk';
     }
 
-    // Stats
+    // Stats cards
+    const balEl = document.getElementById('s-balance');
+    balEl.textContent = fmtUsd(d.balance);
+    balEl.className = 'card-value green';
+
+    const pnlEl = document.getElementById('s-pnl');
+    pnlEl.textContent = (d.pnl >= 0 ? '+' : '') + fmtUsd(d.pnl);
+    pnlEl.className = 'card-value ' + (d.pnl >= 0 ? 'green' : 'red');
+
     const wr = d.wr || 0;
     const total = d.total || 0;
-    document.getElementById('s-total').textContent = total;
     const wrEl = document.getElementById('s-wr');
     wrEl.textContent = wr.toFixed(1) + '%';
     wrEl.className = 'card-value ' + (wr >= 72 ? 'green' : wr >= 60 ? 'amber' : 'red');
-    const pnlEl = document.getElementById('s-pnl');
-    pnlEl.textContent = (d.pnl >= 0 ? '+' : '') + '$' + (d.pnl || 0).toFixed(2);
-    pnlEl.className = 'card-value ' + (d.pnl >= 0 ? 'green' : 'red');
-    document.getElementById('s-open').textContent = (d.open_positions || []).length;
 
-    // Gate progress
+    document.getElementById('s-counts').textContent = `${total} / ${(d.open_positions||[]).length}`;
+
+    // Gate
     document.getElementById('g-trades').textContent = total;
     document.getElementById('g-wr').textContent = wr.toFixed(1) + '%';
     document.getElementById('g-trades-bar').style.width = Math.min(100, total) + '%';
     document.getElementById('g-wr-bar').style.width = Math.min(100, (wr / 72) * 100) + '%';
     document.getElementById('g-status').textContent = d.gate_passed
       ? '✅ Gate passed — ready for live'
-      : `⏳ Need ${Math.max(0, 100 - total)} more trades, WR ≥ 72%`;
+      : `⏳ Need ${Math.max(0, 100 - total)} more trades · WR ${wr.toFixed(1)}% / 72%`;
 
     // Health
     const h = d.health || {};
@@ -235,8 +302,40 @@ async function refresh() {
   }
 }
 
+async function loadHunt() {
+  try {
+    const wallets = await fetch('/api/watchlist').then(r => r.json());
+    huntLoaded = true;
+    const tbody = document.getElementById('hunt-table');
+    if (!wallets || !wallets.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#2a3540">No wallets loaded yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = wallets.map(w => `
+      <tr>
+        <td><span class="rank-badge">${w.rank}</span></td>
+        <td style="font-weight:600;color:#e8f0fb">${w.username}</td>
+        <td class="${w.pnl >= 0 ? 'win' : 'loss'}">${w.pnl >= 0 ? '+' : ''}$${Number(w.pnl).toLocaleString('en-US',{maximumFractionDigits:0})}</td>
+        <td style="color:#556070">$${Number(w.vol).toLocaleString('en-US',{maximumFractionDigits:0})}</td>
+        <td class="wallet-addr">${w.wallet ? w.wallet.slice(0,10)+'…'+w.wallet.slice(-6) : '—'}</td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('hunt-table').innerHTML = '<tr><td colspan="5" style="color:#ff5555">Failed to load watchlist</td></tr>';
+  }
+}
+
+async function loadLogs() {
+  try {
+    const d = await fetch('/api/logs').then(r => r.json());
+    const box = document.getElementById('log-box');
+    box.textContent = (d.lines || []).join('\n');
+    box.scrollTop = box.scrollHeight;
+  } catch(e) {}
+}
+
 refresh();
 setInterval(refresh, 10000);
+setInterval(() => { if (currentTab === 'logs') loadLogs(); }, 15000);
 </script>
 </body>
 </html>
