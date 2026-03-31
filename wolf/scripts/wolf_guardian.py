@@ -456,7 +456,7 @@ def guardian_loop(log_path: str, config) -> None:
             _scan_count += 1
 
             if not errors:
-                logger.debug(f"[GUARDIAN] Scan #{_scan_count}: clean")
+                logger.info(f"[GUARDIAN] Scan #{_scan_count}: ✅ clean")
                 time.sleep(_scan_interval)
                 continue
 
