@@ -99,14 +99,16 @@ class OrderManager:
         self._prune_cache()
 
         if config.PAPER_MODE:
-            return self._execute_paper(signal, size, strategy, venue, market_id, side, entry_price)
+            market_end = signal.get('market_end', 0.0)
+            return self._execute_paper(signal, size, strategy, venue, market_id, side, entry_price, market_end)
         else:
             return self._execute_live(signal, size, strategy, venue, market_id, side, entry_price)
 
-    def _execute_paper(self, signal, size, strategy, venue, market_id, side, entry_price) -> dict:
+    def _execute_paper(self, signal, size, strategy, venue, market_id, side, entry_price, market_end=0.0) -> dict:
         trade = self.paper.place_trade(
             strategy=strategy, venue=venue, market_id=market_id,
             side=side, size=size, entry_price=entry_price,
+            market_end=market_end,
         )
         inserted = self.journal.log_paper_trade({
             "timestamp":   trade.timestamp,

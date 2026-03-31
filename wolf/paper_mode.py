@@ -27,6 +27,7 @@ class PaperTrade:
     pnl: Optional[float] = None
     resolved: bool = False
     won: Optional[bool] = None
+    market_end: float = 0.0  # unix timestamp of market expiry (0 = unknown)
 
 
 class PaperTrader:
@@ -90,7 +91,8 @@ class PaperTrader:
             logger.warning(f"Could not restore paper trades from DB: {e}")
 
     def place_trade(self, strategy: str, venue: str, market_id: str,
-                    side: str, size: float, entry_price: float) -> PaperTrade:
+                    side: str, size: float, entry_price: float,
+                    market_end: float = 0.0) -> PaperTrade:
         trade = PaperTrade(
             timestamp=time.time(),
             strategy=strategy,
@@ -99,6 +101,7 @@ class PaperTrader:
             side=side,
             size=size,
             entry_price=entry_price,
+            market_end=market_end,
         )
         self.open_trades.append(trade)
         logger.info(f"[PAPER] {venue} {strategy} | {market_id} {side} ${size:.2f} @ {entry_price:.3f}")

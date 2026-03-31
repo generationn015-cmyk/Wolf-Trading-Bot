@@ -146,12 +146,12 @@ def push_to_dashboard(force: bool = False) -> bool:
 
         # ── 3. Open positions ─────────────────────────────────────────────────
         open_rows = c.execute("""
-            SELECT id, strategy, market_id, side, size, entry_price, timestamp, reason
+            SELECT id, strategy, market_id, side, size, entry_price, timestamp, reason, market_end, confidence
             FROM paper_trades WHERE resolved=0 AND simulated=0
             ORDER BY timestamp DESC
         """).fetchall()
         for row in open_rows:
-            tid, strat, mid, side, size, ep, ts, reason = row
+            tid, strat, mid, side, size, ep, ts, reason, mend, conf = row
             symbol = _extract_name(strat, reason or "", mid)
             _post("trades", {
                 "id":         f"pt_{tid}",
@@ -166,6 +166,8 @@ def push_to_dashboard(force: bool = False) -> bool:
                 "pnlPercent": 0,
                 "entryTime":  int(float(ts) * 1000),
                 "exitTime":   0,
+                "marketEnd":  int(float(mend or 0) * 1000),
+                "confidence": round(float(conf or 0), 4),
             })
 
         # ── 4. Ledger — resolved trades (last 50) ─────────────────────────────

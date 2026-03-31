@@ -214,6 +214,7 @@ class ValueBetStrategy:
                     "edge":        round((1.0 - entry) * confidence - entry * (1 - confidence) - POLY_FEE, 3),
                     "volume":      vol,
                     "days_to_expiry": market.get("_days_to_expiry", 0),
+                    "market_end": market.get("_market_end_ts", 0),
                     "timestamp":   now,
                     "days_to_expiry": market.get("_days_to_expiry", 999),
                     "reason":      f"ValueBet: {reason} | {q[:40]}",
