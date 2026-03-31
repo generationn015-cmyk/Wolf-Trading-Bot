@@ -1,36 +1,36 @@
 {
   "period_hours": 24,
-  "generated_at": 1774970125.6281886,
+  "generated_at": 1774974078.0705047,
   "overall": {
-    "total_trades": 19,
+    "total_trades": 16,
     "wins": 4,
-    "losses": 15,
-    "win_rate": 0.21052631578947367,
-    "total_pnl": 346.72,
-    "avg_pnl_per_trade": 18.25,
+    "losses": 12,
+    "win_rate": 0.25,
+    "total_pnl": 306.59,
+    "avg_pnl_per_trade": 19.16,
     "best_trade": 201.16,
     "worst_trade": -104.5,
-    "avg_confidence": 0.734
+    "avg_confidence": 0.737
   },
   "by_strategy": {
     "copy_trading": {
-      "total": 9,
-      "wins": 0,
-      "win_rate": 0.0,
-      "pnl": 0,
-      "avg_pnl": 0,
-      "avg_confidence": 0.717,
-      "avg_price": 0.477,
-      "best": 0,
+      "total": 8,
+      "wins": 1,
+      "win_rate": 0.125,
+      "pnl": 1.96,
+      "avg_pnl": 0.25,
+      "avg_confidence": 0.716,
+      "avg_price": 0.455,
+      "best": 1.96,
       "worst": 0
     },
     "market_making": {
-      "total": 4,
-      "wins": 2,
+      "total": 2,
+      "wins": 1,
       "win_rate": 0.5,
-      "pnl": 96.78,
-      "avg_pnl": 24.2,
-      "avg_confidence": 0.753,
+      "pnl": 96.66,
+      "avg_pnl": 48.33,
+      "avg_confidence": 0.78,
       "avg_price": 0.495,
       "best": 201.16,
       "worst": -104.5
@@ -39,12 +39,12 @@
       "total": 6,
       "wins": 2,
       "win_rate": 0.333,
-      "pnl": 249.94,
-      "avg_pnl": 41.66,
-      "avg_confidence": 0.747,
-      "avg_price": 0.204,
+      "pnl": 207.97,
+      "avg_pnl": 34.66,
+      "avg_confidence": 0.75,
+      "avg_price": 0.209,
       "best": 187.41,
-      "worst": -21.45
+      "worst": -41.98
     }
   },
   "price_buckets": [
@@ -64,8 +64,8 @@
     },
     {
       "range": "0.3\u20130.4",
-      "total": 3,
-      "win_rate": 0.333,
+      "total": 2,
+      "win_rate": 0.5,
       "pnl": 201.16,
       "flag": ""
     },
@@ -73,19 +73,19 @@
       "range": "0.4\u20130.5",
       "total": 5,
       "win_rate": 0.0,
-      "pnl": -1.95,
+      "pnl": -41.98,
       "flag": "\u26a0\ufe0f weak"
     },
     {
       "range": "0.5\u20130.6",
-      "total": 3,
-      "win_rate": 0.333,
-      "pnl": 2.07,
+      "total": 2,
+      "win_rate": 0.5,
+      "pnl": 1.96,
       "flag": ""
     },
     {
       "range": "0.6\u20130.7",
-      "total": 3,
+      "total": 2,
       "win_rate": 0.0,
       "pnl": -104.5,
       "flag": ""
@@ -93,16 +93,10 @@
   ],
   "hourly_performance": [
     {
-      "hour_et": 11,
-      "total": 2,
-      "win_rate": 0.5,
-      "pnl": 0.12
-    },
-    {
-      "hour_et": 12,
-      "total": 3,
-      "win_rate": 0.0,
-      "pnl": 0
+      "hour_et": 0,
+      "total": 1,
+      "win_rate": 1.0,
+      "pnl": 1.96
     },
     {
       "hour_et": 19,
@@ -118,9 +112,9 @@
     },
     {
       "hour_et": 23,
-      "total": 2,
-      "win_rate": 0.5,
-      "pnl": 96.66
+      "total": 3,
+      "win_rate": 0.333,
+      "pnl": 54.69
     }
   ],
   "worst_losses": [
@@ -130,6 +124,13 @@
       "side": "NO",
       "pnl": -104.5,
       "reason": "MM both sides \u2014 paired hedge"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.405,
+      "side": "NO",
+      "pnl": -41.98,
+      "reason": "ValueBet: Value NO@0.405 mid-range vol=$366,471 | BitBoy convicted?"
     },
     {
       "strategy": "value_bet",
@@ -144,34 +145,6 @@
       "side": "YES",
       "pnl": -9.09,
       "reason": "ValueBet: Underdog YES@0.110 vol=$5,678,283 | MegaETH market cap (FDV) >$2B one "
-    },
-    {
-      "strategy": "market_making",
-      "entry_price": 0.41,
-      "side": "NO",
-      "pnl": -1.95,
-      "reason": "MM both sides \u2014 paired hedge"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.54,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0xc8075693... PnL $150,338"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.62,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0xd6a3f0ec... PnL $138,764"
-    },
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.375,
-      "side": "NO",
-      "pnl": 0,
-      "reason": "ValueBet: Value NO@0.375 mid-range vol=$148,138 | Will Sweden qualify for the 20"
     },
     {
       "strategy": "copy_trading",
@@ -232,8 +205,8 @@
   ],
   "wallet_performance": [],
   "lessons": [
-    "\ud83d\udd34 Overall WR 21.1% \u2014 below target. Tighten filters.",
-    "\u26d4 copy_trading: 0.0% WR on 9 trades \u2014 raise confidence floor or pause strategy",
+    "\ud83d\udd34 Overall WR 25.0% \u2014 below target. Tighten filters.",
+    "\u26d4 copy_trading: 12.5% WR on 8 trades \u2014 raise confidence floor or pause strategy",
     "\u26d4 value_bet: 33.3% WR on 6 trades \u2014 raise confidence floor or pause strategy",
     "\ud83d\udeab Price range 0.4\u20130.5: 0.0% WR \u2014 block this range",
     "\u23f0 Best hour: 22:00 ET (66.7% WR, $+280)"

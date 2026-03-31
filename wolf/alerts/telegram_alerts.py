@@ -83,12 +83,24 @@ def _send_raw(text: str) -> bool:
     return _send(text)
 
 
-def send_alert(message: str, level: str = "INFO") -> bool:
-    if config.PAPER_MODE and level.upper() != "CRITICAL":
+def send_alert(message: str, level: str = "INFO", system: bool = False) -> bool:
+    """
+    Send a Wolf alert to Telegram.
+    system=True → NEVER suppressed in paper mode (Guardian, health, kill switch, online/offline).
+    system=False → suppressed in paper mode unless CRITICAL.
+    """
+    lvl = level.upper()
+    # System/health alerts always fire regardless of paper mode
+    if system:
+        prefix = {"INFO": "🐺", "WARNING": "⚠️", "CRITICAL": "🚨", "HIGH": "🟠"}.get(lvl, "🛡️")
+        return _send(f"{prefix} <b>Wolf System</b>\n{message}")
+
+    # Trade alerts: suppress in paper mode unless CRITICAL
+    if config.PAPER_MODE and lvl != "CRITICAL":
         logger.info(f"[PAPER MODE - suppressed] [{level}] {message}")
         return True
 
-    prefix = {"INFO": "🐺", "WARNING": "⚠️", "CRITICAL": "🚨"}.get(level.upper(), "🐺")
+    prefix = {"INFO": "🐺", "WARNING": "⚠️", "CRITICAL": "🚨"}.get(lvl, "🐺")
     return _send(f"{prefix} <b>Wolf</b>\n{message}")
 
 # ── TRADE ENTRY alert (fires on every live trade) ────────────────────────────

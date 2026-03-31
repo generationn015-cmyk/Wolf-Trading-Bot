@@ -4,11 +4,6 @@
     "value_bet": 0.92
   },
   "wallet_penalty": {},
-  "bad_ranges": [
-    [
-      0.33,
-      0.43
-    ]
-  ],
-  "saved_at": 1774970125.6264257
+  "bad_ranges": [],
+  "saved_at": 1774977484.3804631
 }

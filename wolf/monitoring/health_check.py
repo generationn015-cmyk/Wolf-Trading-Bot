@@ -64,10 +64,10 @@ class HealthCheck:
             else:
                 results["binance_ok"] = age_ms < 30000
                 if not results["binance_ok"]:
-                    send_alert(f"Binance feed stale: {age_ms:.0f}ms", "WARNING")
+                    send_alert(f"Binance feed stale: {age_ms:.0f}ms", "WARNING", system=True)
         except Exception as e:
             results["binance_ok"] = False
-            send_alert(f"Binance feed error: {e}", "WARNING")
+            send_alert(f"Binance feed error: {e}", "WARNING", system=True)
 
         # Polymarket API check
         try:
@@ -79,7 +79,7 @@ class HealthCheck:
             results["polymarket_ok"] = resp.ok
         except Exception as e:
             results["polymarket_ok"] = False
-            send_alert(f"Polymarket API unreachable: {e}", "WARNING")
+            send_alert(f"Polymarket API unreachable: {e}", "WARNING", system=True)
 
         # Kalshi API check
         try:
@@ -135,5 +135,5 @@ class HealthCheck:
             f"Kalshi: {'✅' if results.get('kalshi_ok') else '❌'}\n"
             f"Paper trades: {stats['paper']['total']} | Win rate: {stats['paper']['win_rate']:.1%}"
         )
-        send_alert(status_msg, "INFO")
+        send_alert(status_msg, "INFO", system=True)
         logger.info(f"Health check complete: {results}")

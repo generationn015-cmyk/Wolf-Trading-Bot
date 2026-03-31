@@ -240,7 +240,7 @@ async def main():
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
     logger.info(f"🐺 Wolf starting in {mode} mode")
-    send_alert(f"Wolf online — {mode} mode\nAll systems starting...", "INFO")
+    send_alert(f"Wolf online — {mode} mode\nAll systems starting...", "INFO", system=True)
 
     # ── Start feeds (non-fatal) ───────────────────────────────────────────────
     try:
@@ -295,7 +295,7 @@ async def main():
         f"  7. Kalshi Copy Trading\n"
         f"  8. Market Making\n"
         f"Paper until Jefe authorizes live.",
-        "INFO"
+        "INFO", system=True
     )
 
     # ─── Main Trading Loop ────────────────────────────────────────────────────
@@ -594,7 +594,7 @@ async def main():
             pass
     try:
         from alerts.telegram_alerts import send_alert
-        send_alert("Wolf offline — graceful shutdown complete.", "WARNING")
+        send_alert("Wolf offline — graceful shutdown complete.", "WARNING", system=True)
     except Exception:
         pass
 
