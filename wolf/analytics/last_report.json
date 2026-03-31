@@ -1,28 +1,28 @@
 {
   "period_hours": 24,
-  "generated_at": 1774974078.0705047,
+  "generated_at": 1774977598.3627474,
   "overall": {
-    "total_trades": 16,
+    "total_trades": 9,
     "wins": 4,
-    "losses": 12,
-    "win_rate": 0.25,
+    "losses": 5,
+    "win_rate": 0.4444444444444444,
     "total_pnl": 306.59,
-    "avg_pnl_per_trade": 19.16,
+    "avg_pnl_per_trade": 34.07,
     "best_trade": 201.16,
     "worst_trade": -104.5,
-    "avg_confidence": 0.737
+    "avg_confidence": 0.753
   },
   "by_strategy": {
     "copy_trading": {
-      "total": 8,
+      "total": 1,
       "wins": 1,
-      "win_rate": 0.125,
+      "win_rate": 1.0,
       "pnl": 1.96,
-      "avg_pnl": 0.25,
-      "avg_confidence": 0.716,
-      "avg_price": 0.455,
+      "avg_pnl": 1.96,
+      "avg_confidence": 0.715,
+      "avg_price": 0.51,
       "best": 1.96,
-      "worst": 0
+      "worst": 1.96
     },
     "market_making": {
       "total": 2,
@@ -57,8 +57,8 @@
     },
     {
       "range": "0.1\u20130.2",
-      "total": 4,
-      "win_rate": 0.25,
+      "total": 3,
+      "win_rate": 0.333,
       "pnl": 156.87,
       "flag": ""
     },
@@ -71,21 +71,21 @@
     },
     {
       "range": "0.4\u20130.5",
-      "total": 5,
+      "total": 1,
       "win_rate": 0.0,
       "pnl": -41.98,
-      "flag": "\u26a0\ufe0f weak"
+      "flag": ""
     },
     {
       "range": "0.5\u20130.6",
-      "total": 2,
-      "win_rate": 0.5,
+      "total": 1,
+      "win_rate": 1.0,
       "pnl": 1.96,
       "flag": ""
     },
     {
       "range": "0.6\u20130.7",
-      "total": 2,
+      "total": 1,
       "win_rate": 0.0,
       "pnl": -104.5,
       "flag": ""
@@ -100,14 +100,14 @@
     },
     {
       "hour_et": 19,
-      "total": 9,
+      "total": 3,
       "win_rate": 0.0,
       "pnl": -30.54
     },
     {
       "hour_et": 22,
-      "total": 3,
-      "win_rate": 0.667,
+      "total": 2,
+      "win_rate": 1.0,
       "pnl": 280.48
     },
     {
@@ -147,68 +147,16 @@
       "reason": "ValueBet: Underdog YES@0.110 vol=$5,678,283 | MegaETH market cap (FDV) >$2B one "
     },
     {
-      "strategy": "copy_trading",
-      "entry_price": 0.63,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0xa71093ca... PnL $142,340"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.46,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x5bec79df... PnL $140,918"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.46,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x9ba8d25a... PnL $102,134"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.17,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x96489abc... PnL $70,456"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.4100000000445877,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x777d9f00... PnL $70,042"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.4400000000224274,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x6ac5bb06... PnL $42,119"
-    },
-    {
       "strategy": "value_bet",
       "entry_price": 0.375,
       "side": "YES",
       "pnl": 0,
       "reason": "ValueBet: Value YES@0.375 mid-range vol=$506,353 | Will Poland qualify for the 2"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.56,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x507e52ef... PnL $30,988"
     }
   ],
   "wallet_performance": [],
   "lessons": [
-    "\ud83d\udd34 Overall WR 25.0% \u2014 below target. Tighten filters.",
-    "\u26d4 copy_trading: 12.5% WR on 8 trades \u2014 raise confidence floor or pause strategy",
-    "\u26d4 value_bet: 33.3% WR on 6 trades \u2014 raise confidence floor or pause strategy",
-    "\ud83d\udeab Price range 0.4\u20130.5: 0.0% WR \u2014 block this range",
-    "\u23f0 Best hour: 22:00 ET (66.7% WR, $+280)"
+    "\ud83d\udd34 Overall WR 44.4% \u2014 below target. Tighten filters.",
+    "\u26d4 value_bet: 33.3% WR on 6 trades \u2014 raise confidence floor or pause strategy"
   ]
 }
