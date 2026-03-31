@@ -96,4 +96,7 @@ def validate():
     return warnings
 
 # Dashboard
-WOLF_DASHBOARD_API_KEY = os.getenv("WOLF_DASHBOARD_API_KEY", "")
+WOLF_DASHBOARD_API_KEY      = os.getenv("WOLF_DASHBOARD_API_KEY", "")
+# Dashboard password — set WOLF_DASHBOARD_PASSWORD in .env once and it persists forever.
+# Never auto-generated. Empty string = no auth (local-only access).
+WOLF_DASHBOARD_PASSWORD     = os.getenv("WOLF_DASHBOARD_PASSWORD", "")

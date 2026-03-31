@@ -154,11 +154,30 @@ class TradeLogger:
         for _attempt in range(3):
             try:
                 conn = sqlite3.connect(self.db_path, timeout=10)
-                conn.execute("""
-                    UPDATE paper_trades
-                    SET resolved=1, won=?, exit_price=?, pnl=?, void=?
-                    WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0
-                """, (1 if won else 0, exit_price, pnl, 1 if void else 0, market_id, strategy, side))
+                # Use DELETE+INSERT pattern to avoid UNIQUE(strategy, market_id, side, resolved)
+                # constraint violation when resolving a trade that was already force-closed
+                cur = conn.execute(
+                    "SELECT id, timestamp, venue, size, entry_price, confidence, edge, reason, "
+                    "market_end, days_to_expiry, slug, sub_strategy, tp_price, sl_price, simulated "
+                    "FROM paper_trades "
+                    "WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0 "
+                    "ORDER BY timestamp DESC LIMIT 1",
+                    (market_id, strategy, side)
+                )
+                row = cur.fetchone()
+                if row:
+                    row_id = row[0]
+                    conn.execute("DELETE FROM paper_trades WHERE id=?", (row_id,))
+                    conn.execute("""
+                        INSERT INTO paper_trades
+                            (timestamp, strategy, venue, market_id, side, size, entry_price,
+                             exit_price, pnl, won, resolved, confidence, edge, reason,
+                             market_end, days_to_expiry, slug, sub_strategy, tp_price, sl_price, simulated, void)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?)
+                    """, (row[1], strategy, row[2], market_id, side, row[3], row[4],
+                          exit_price, pnl, 1 if won else 0,
+                          row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14],
+                          1 if void else 0))
                 conn.commit()
                 conn.close()
                 return

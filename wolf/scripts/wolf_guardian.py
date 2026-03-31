@@ -35,40 +35,36 @@ class ErrorPattern(NamedTuple):
 
 PATTERNS = [
     ErrorPattern(
+        # Only fires when slug lookup truly fails (not just retrying) — avoid matching timestamps
         name="price_lookup_fail",
-        pattern=r"Price lookup failed.*for (\S+)",
+        pattern=r"\[FORCE-EXIT\] Price lookup failed \d+x for ",
         severity="MEDIUM",
         auto_fix=True,
         fix_fn="_fix_price_lookup_fail",
-        description="Market price lookup failing — slug cache may be stale",
+        description="Market price lookup failed 3x — position closed at entry (pnl=$0, void)",
     ),
     ErrorPattern(
-        name="force_exit_no_price",
-        pattern=r"\[FORCE-EXIT\] Price lookup failed \d+x",
-        severity="HIGH",
-        auto_fix=False,
-        fix_fn="",
-        description="Position force-exited due to price failure (void trade) — data integrity risk",
-    ),
-    ErrorPattern(
+        # DB write failures — UNIQUE constraint errors are now handled in code, only real failures reach here
         name="db_write_fail",
-        pattern=r"DB update FAILED|sqlite3\.OperationalError",
+        pattern=r"DB update FAILED after 3 attempts",
         severity="HIGH",
         auto_fix=False,
         fix_fn="",
-        description="SQLite write error — check disk space / DB lock",
+        description="SQLite write failed after 3 retries — check disk space",
     ),
     ErrorPattern(
-        name="kalshi_down",
-        pattern=r"Kalshi.*❌|kalshi.*fail|KalshiClient.*error",
-        severity="LOW",
+        # Only fires on actual unhandled strategy exceptions — not Kalshi expected-disabled messages
+        name="strategy_exception",
+        pattern=r"(ValueError|TypeError|KeyError|AttributeError).*strateg",
+        severity="HIGH",
         auto_fix=False,
         fix_fn="",
-        description="Kalshi API unavailable — strategies using it will be skipped",
+        description="Unhandled exception in strategy — trade was skipped",
     ),
     ErrorPattern(
+        # True rate limit — must be an HTTP response body or explicit error, not a timestamp
         name="api_rate_limit",
-        pattern=r"429|rate.limit|Too Many Requests",
+        pattern=r"HTTP 429|Too Many Requests|rate limit exceeded",
         severity="MEDIUM",
         auto_fix=False,
         fix_fn="",
@@ -76,23 +72,15 @@ PATTERNS = [
     ),
     ErrorPattern(
         name="position_cap_full",
-        pattern=r"Position cap.*reached|MAX_OPEN_POSITIONS",
+        pattern=r"Max open positions reached",
         severity="LOW",
         auto_fix=False,
         fix_fn="",
-        description="Paper position cap full (24/24) — no new entries until slots free",
-    ),
-    ErrorPattern(
-        name="strategy_exception",
-        pattern=r"(ValueError|TypeError|KeyError|AttributeError).*strategy",
-        severity="HIGH",
-        auto_fix=False,
-        fix_fn="",
-        description="Unhandled exception in strategy — trade was skipped",
+        description="Position cap full — no new entries until slots free",
     ),
     ErrorPattern(
         name="telegram_fail",
-        pattern=r"Telegram.*failed|TelegramError|telegram.*error",
+        pattern=r"Telegram send error|TelegramError",
         severity="LOW",
         auto_fix=False,
         fix_fn="",
@@ -108,13 +96,19 @@ PATTERNS = [
     ),
     ErrorPattern(
         name="dashboard_push_fail",
-        pattern=r"dashboard.*push.*fail|_post.*error|Failed to push",
+        pattern=r"dashboard.*push.*fail|Failed to push",
         severity="LOW",
         auto_fix=False,
         fix_fn="",
         description="Dashboard push failed — Wolf continues, data may lag",
     ),
 ]
+
+# ── Patterns that are EXPECTED / KNOWN-DISABLED — never alert ────────────────
+# Add patterns here for services that are intentionally off (e.g. Kalshi before live)
+SUPPRESSED_PATTERNS = {
+    "kalshi_down",   # Kalshi intentionally disabled — KALSHI_ENABLED=false
+}
 
 # ── State ──────────────────────────────────────────────────────────────────────
 
@@ -386,6 +380,9 @@ def scan_log(log_path: str, config) -> list[dict]:
 
 
 def _should_alert(error_name: str) -> bool:
+    # Never alert on suppressed/known-disabled patterns
+    if error_name in SUPPRESSED_PATTERNS:
+        return False
     now = time.time()
     last = _alert_cooldown.get(error_name, 0)
     if now - last > _alert_cooldown_secs:
@@ -440,7 +437,8 @@ def guardian_loop(log_path: str, config) -> None:
             errors = scan_log(log_path, config)
             # Run DB integrity check every scan — catches what log scanning misses
             db_issues = check_db_integrity(config)
-            errors = errors + db_issues
+            # Filter out suppressed/expected-disabled patterns before processing
+            errors = [e for e in errors + db_issues if e["name"] not in SUPPRESSED_PATTERNS]
             _scan_count += 1
 
             if not errors:
@@ -474,9 +472,12 @@ def guardian_loop(log_path: str, config) -> None:
                 except Exception as ae:
                     logger.warning(f"[GUARDIAN] Alert send failed: {ae}")
 
-            # Always log summary
+            # Always log summary (suppressed patterns already excluded from errors list)
             names = ", ".join(e["name"] for e in errors)
-            logger.info(f"[GUARDIAN] Scan #{_scan_count}: {len(errors)} pattern(s) found — {names}")
+            severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+            for e in errors:
+                severity_counts[e.get("severity", "LOW")] = severity_counts.get(e.get("severity","LOW"), 0) + 1
+            logger.info(f"[GUARDIAN] Scan #{_scan_count}: {len(errors)} issue(s) — {names}")
 
         except Exception as ex:
             logger.warning(f"[GUARDIAN] Scan loop exception: {ex}")

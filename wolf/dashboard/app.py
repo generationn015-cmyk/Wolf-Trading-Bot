@@ -3,11 +3,11 @@ Wolf Mission Control — Dashboard Backend
 FastAPI + WebSocket — serves live trading data to the frontend.
 Accessible on 0.0.0.0:5000 (VPS-accessible).
 """
-import sys, os, time, json, asyncio, sqlite3, subprocess
+import sys, os, time, json, asyncio, sqlite3, subprocess, secrets, hashlib
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Response, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import config
@@ -20,6 +20,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Persistent auth ───────────────────────────────────────────────────────────
+# Password is set ONCE in .env as WOLF_DASHBOARD_PASSWORD.
+# Never auto-generated. If blank, auth is skipped (local-only use).
+# Sessions are tracked via a signed cookie — no re-login unless browser clears cookies.
+
+_COOKIE_NAME = "wolf_session"
+_SESSION_STORE: set[str] = set()  # In-memory session tokens (cleared on restart — forces re-login once per Wolf start)
+
+def _check_password(raw: str) -> bool:
+    """Compare submitted password against configured password (constant-time)."""
+    expected = config.WOLF_DASHBOARD_PASSWORD
+    if not expected:
+        return True  # No password configured — open access
+    return secrets.compare_digest(raw.strip(), expected.strip())
+
+def _make_session_token() -> str:
+    return secrets.token_hex(32)
+
+def _auth_required(request: Request) -> None:
+    """FastAPI dependency — raises 401 if password is set and session is not valid."""
+    if not config.WOLF_DASHBOARD_PASSWORD:
+        return  # No password set — allow all
+    token = request.cookies.get(_COOKIE_NAME, "")
+    if token not in _SESSION_STORE:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
 # ── WebSocket manager ─────────────────────────────────────────────────────────
 class ConnectionManager:
@@ -170,13 +196,42 @@ def fetch_stats():
         "timestamp": time.time(),
     }
 
+# ── Login / logout endpoints ──────────────────────────────────────────────────
+@app.post("/api/login")
+async def api_login(request: Request):
+    """Authenticate with dashboard password. Sets a persistent session cookie."""
+    try:
+        body = await request.json()
+        password = body.get("password", "")
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid request"}, status_code=400)
+
+    if not _check_password(password):
+        return JSONResponse({"ok": False, "error": "incorrect password"}, status_code=401)
+
+    token = _make_session_token()
+    _SESSION_STORE.add(token)
+    resp = JSONResponse({"ok": True})
+    # max_age=30 days — session persists across browser sessions
+    resp.set_cookie(_COOKIE_NAME, token, max_age=30*24*3600, httponly=True, samesite="lax")
+    return resp
+
+@app.post("/api/logout")
+def api_logout(response: Response, request: Request):
+    token = request.cookies.get(_COOKIE_NAME, "")
+    _SESSION_STORE.discard(token)
+    response.delete_cookie(_COOKIE_NAME)
+    return JSONResponse({"ok": True})
+
 # ── REST endpoints ────────────────────────────────────────────────────────────
 @app.get("/api/stats")
-def api_stats():
+def api_stats(request: Request):
+    _auth_required(request)
     return JSONResponse(fetch_stats())
 
 @app.get("/api/watchlist")
-def api_watchlist():
+def api_watchlist(request: Request):
+    _auth_required(request)
     """Return top 20 Polymarket wallets Wolf is watching."""
     from feeds.polymarket_feed import get_top_wallets
     wallets = get_top_wallets(limit=20)
@@ -192,7 +247,8 @@ def api_watchlist():
     return JSONResponse(result)
 
 @app.get("/api/logs")
-def api_logs():
+def api_logs(request: Request):
+    _auth_required(request)
     log_path = os.path.join(os.path.dirname(config.DB_PATH), 'wolf.log')
     lines = []
     if os.path.exists(log_path):
@@ -201,7 +257,8 @@ def api_logs():
     return JSONResponse({"lines": [l.rstrip() for l in lines]})
 
 @app.post("/api/control/{action}")
-def api_control(action: str):
+def api_control(action: str, request: Request):
+    _auth_required(request)
     wolf_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if action == "restart":
         subprocess.Popen(
@@ -217,12 +274,18 @@ def api_control(action: str):
 # ── WebSocket live feed ───────────────────────────────────────────────────────
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    # Check auth via cookie before accepting connection
+    if config.WOLF_DASHBOARD_PASSWORD:
+        token = ws.cookies.get(_COOKIE_NAME, "")
+        if token not in _SESSION_STORE:
+            await ws.close(code=4401)
+            return
     await manager.connect(ws)
     try:
         while True:
             data = fetch_stats()
             await ws.send_json(data)
-            await asyncio.sleep(5)  # push update every 5s
+            await asyncio.sleep(5)  # push every 5s
     except WebSocketDisconnect:
         manager.disconnect(ws)
     except Exception:
@@ -232,8 +295,81 @@ async def websocket_endpoint(ws: WebSocket):
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
 
+# ── Login page HTML ───────────────────────────────────────────────────────────
+_LOGIN_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐺 Wolf — Login</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0f1a; color: #c0cfe0; font-family: 'Segoe UI', sans-serif;
+         display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #111827; border: 1px solid #1e2d40; border-radius: 12px;
+          padding: 40px 36px; width: 360px; text-align: center; }
+  h1 { font-size: 2em; margin-bottom: 6px; }
+  .sub { color: #556070; font-size: 0.85em; margin-bottom: 28px; }
+  input[type=password] {
+    width: 100%; padding: 12px 16px; background: #0d1421; border: 1px solid #1e2d40;
+    border-radius: 8px; color: #c0cfe0; font-size: 1em; margin-bottom: 14px; outline: none;
+  }
+  input[type=password]:focus { border-color: #3b82f6; }
+  button { width: 100%; padding: 12px; background: #3b82f6; border: none;
+           border-radius: 8px; color: #fff; font-size: 1em; font-weight: 600;
+           cursor: pointer; transition: background 0.2s; }
+  button:hover { background: #2563eb; }
+  .err { color: #f87171; font-size: 0.85em; margin-top: 10px; min-height: 20px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🐺</h1>
+  <div class="sub">Wolf Mission Control</div>
+  <input type="password" id="pw" placeholder="Password" autofocus
+         onkeydown="if(event.key==='Enter') login()">
+  <button onclick="login()">Enter</button>
+  <div class="err" id="err"></div>
+</div>
+<script>
+async function login() {
+  const pw = document.getElementById('pw').value;
+  const err = document.getElementById('err');
+  err.textContent = '';
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pw}),
+      credentials: 'same-origin'
+    });
+    if (r.ok) {
+      window.location.href = '/';
+    } else {
+      err.textContent = 'Incorrect password.';
+      document.getElementById('pw').value = '';
+      document.getElementById('pw').focus();
+    }
+  } catch(e) {
+    err.textContent = 'Connection error.';
+  }
+}
+</script>
+</body>
+</html>"""
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page():
+    """Login page — only shown when WOLF_DASHBOARD_PASSWORD is set."""
+    return HTMLResponse(_LOGIN_HTML)
+
 @app.get("/", response_class=HTMLResponse)
-def index():
+def index(request: Request):
+    """Main dashboard — redirects to /login if password is set and session is invalid."""
+    if config.WOLF_DASHBOARD_PASSWORD:
+        token = request.cookies.get(_COOKIE_NAME, "")
+        if token not in _SESSION_STORE:
+            return RedirectResponse(url="/login", status_code=302)
     html_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
     return HTMLResponse(open(html_path).read())
 

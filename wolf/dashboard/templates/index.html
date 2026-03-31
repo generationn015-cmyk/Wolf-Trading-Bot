@@ -387,7 +387,12 @@ function connectWS() {
     } catch(e) { console.warn('[WS] parse error', e); }
   };
 
-  _ws.onclose = () => {
+  _ws.onclose = (event) => {
+    if (event.code === 4401) {
+      // Auth required — redirect to login
+      window.location.href = '/login';
+      return;
+    }
     console.warn('[WS] Disconnected — reconnecting in 5s');
     document.getElementById('ws-indicator').textContent = '🔴 Reconnecting…';
     _ws = null;
