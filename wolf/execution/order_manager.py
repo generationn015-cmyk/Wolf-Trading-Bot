@@ -100,15 +100,16 @@ class OrderManager:
 
         if config.PAPER_MODE:
             market_end = signal.get('market_end', 0.0)
-            return self._execute_paper(signal, size, strategy, venue, market_id, side, entry_price, market_end)
+            days_to_expiry = signal.get('days_to_expiry', 0.0)
+            return self._execute_paper(signal, size, strategy, venue, market_id, side, entry_price, market_end, days_to_expiry)
         else:
             return self._execute_live(signal, size, strategy, venue, market_id, side, entry_price)
 
-    def _execute_paper(self, signal, size, strategy, venue, market_id, side, entry_price, market_end=0.0) -> dict:
+    def _execute_paper(self, signal, size, strategy, venue, market_id, side, entry_price, market_end=0.0, days_to_expiry=0.0) -> dict:
         trade = self.paper.place_trade(
             strategy=strategy, venue=venue, market_id=market_id,
             side=side, size=size, entry_price=entry_price,
-            market_end=market_end,
+            market_end=market_end, days_to_expiry=days_to_expiry,
         )
         inserted = self.journal.log_paper_trade({
             "timestamp":   trade.timestamp,
@@ -126,6 +127,13 @@ class OrderManager:
             if trade in self.paper.open_trades:
                 self.paper.open_trades.remove(trade)
             return {"status": "dedup_blocked", "reason": "DB dedup"}
+
+        # Sync risk engine open_positions so total cap is enforced correctly
+        from risk_engine import TradeRecord
+        import time as _time
+        _tr = TradeRecord(timestamp=_time.time(), market_id=market_id, strategy=strategy,
+                          side=side, size=size, entry_price=entry_price, status='open')
+        self.risk.open_position(_tr)
 
         # Entry alert (live only — suppressed in paper mode inside alert)
         from alerts.telegram_alerts import alert_trade_entry

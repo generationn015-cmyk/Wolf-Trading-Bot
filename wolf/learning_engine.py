@@ -73,6 +73,8 @@ class LearningEngine:
 
         self.last_analysis = time.time()
         lessons = {}
+        if not hasattr(self, '_last_lesson_hash'):
+            self._last_lesson_hash = {}
 
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -99,7 +101,10 @@ class LearningEngine:
                         new_floor = min(0.85, old + 0.05)
                         self.min_confidence_overrides[strat] = new_floor
                         msg = f"[{strat}] WR={wr:.1%} < 70% — raising confidence floor to {new_floor:.2f}"
-                        logger.info(f"📚 Lesson: {msg}")
+                        _lh = hash(msg)
+                        if self._last_lesson_hash.get(strat) != _lh:
+                            self._last_lesson_hash[strat] = _lh
+                            logger.info(f"📚 Lesson: {msg}")
                         self.lesson_log.append(msg)
                         lessons[strat] = {"action": "raised_confidence_floor", "new_floor": new_floor, "wr": wr}
                     elif wr >= 0.85:
@@ -108,7 +113,10 @@ class LearningEngine:
                         new_floor = max(config.MIN_CONFIDENCE, old - 0.02)
                         self.min_confidence_overrides[strat] = new_floor
                         msg = f"[{strat}] WR={wr:.1%} ≥ 85% — relaxing confidence floor to {new_floor:.2f}"
-                        logger.info(f"📚 Lesson: {msg}")
+                        _lh = hash(msg)
+                        if self._last_lesson_hash.get(strat) != _lh:
+                            self._last_lesson_hash[strat] = _lh
+                            logger.info(f"📚 Lesson: {msg}")
                         lessons[strat] = {"action": "relaxed_confidence_floor", "new_floor": new_floor, "wr": wr}
 
                 # ── 2. Identify losing price ranges ──────────────────────────
@@ -129,7 +137,10 @@ class LearningEngine:
                         high = round(price + 0.05, 2)
                         self.bad_price_ranges.append((low, high))
                         msg = f"Price range {low:.2f}–{high:.2f} has {wr:.0%} WR on {cnt} trades — flagged as weak"
-                        logger.info(f"📚 Lesson: {msg}")
+                        _lh = hash(msg)
+                        if self._last_lesson_hash.get(strat) != _lh:
+                            self._last_lesson_hash[strat] = _lh
+                            logger.info(f"📚 Lesson: {msg}")
 
                 # ── 3. Copy trading: identify wallets with poor outcomes ──────
                 wallet_rows = conn.execute("""
@@ -147,7 +158,10 @@ class LearningEngine:
                     if wr < 0.50 and reason:
                         self.wallet_penalty[reason] = 0.3  # reduce to 30% weight
                         msg = f"Wallet {reason[:12]}... WR={wr:.0%} — penalized"
-                        logger.info(f"📚 Lesson: {msg}")
+                        _lh = hash(msg)
+                        if self._last_lesson_hash.get(strat) != _lh:
+                            self._last_lesson_hash[strat] = _lh
+                            logger.info(f"📚 Lesson: {msg}")
 
                 # ── 4. Summarize current learned state ────────────────────────
                 total_row = conn.execute(

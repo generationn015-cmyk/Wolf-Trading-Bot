@@ -33,7 +33,7 @@ class CopyTrader:
     def __init__(self):
         self.wallets: dict[str, WalletProfile] = {}
         self._last_refresh: float = 0
-        self._refresh_interval = 300  # refresh wallet list every 5 min
+        self._refresh_interval = 900  # refresh wallet list every 15 min
         self.intel = IntelligenceEngine()
         # Persistent dedup set — load already-fired trade IDs from DB on init
         self._fired_trade_ids: set[str] = self._load_fired_ids()
@@ -120,7 +120,7 @@ class CopyTrader:
                     logger.debug(f"Wallet {addr[:10]}... suspicious score overridden — leaderboard PnL ${profile.pnl:,.0f}")
                     classification = "whale"
                 else:
-                    logger.info(f"Wallet {addr[:10]}... flagged suspicious | score={score.score:.3f}")
+                    logger.debug(f"Wallet {addr[:10]}... flagged suspicious | score={score.score:.3f}")
                     continue
 
             if classification in ("smart", "whale", "standard"):
@@ -130,7 +130,7 @@ class CopyTrader:
                 # Auto-validate leaderboard wallets immediately — on-chain PnL IS their track record
                 if not profile.demo_validated:
                     profile.demo_validated = True
-                    logger.info(f"Wallet {addr[:10]}... validated (leaderboard PnL ${profile.pnl:,.0f})")
+                    logger.debug(f"Wallet {addr[:10]}... validated (leaderboard PnL ${profile.pnl:,.0f})")
 
         # Normalize weights across non-suspicious wallets
         eligible = [w for w in self.wallets.values() if w.weight > 0]
@@ -188,7 +188,8 @@ class CopyTrader:
                 if size < config.COPY_TRADE_MIN_SIZE:
                     continue
                 # Sharp filter: only trade mid-range prices (clearest signal)
-                if not (0.10 <= price <= 0.90):
+                # Skip near-resolved markets (>0.82 YES = almost no upside left)
+                if not (0.10 <= price <= 0.82):
                     continue
                 if side not in ("YES", "NO"):
                     continue
@@ -224,7 +225,7 @@ class CopyTrader:
 
                 if not profile.demo_validated:
                     profile.demo_validated = True
-                    logger.info(f"Wallet {addr[:10]}... auto-validated (leaderboard PnL ${profile.pnl:,.0f})")
+                    logger.debug(f"Wallet {addr[:10]}... auto-validated (leaderboard PnL ${profile.pnl:,.0f})")
 
                 # Confidence: base on wallet PnL rank + learning floor
                 learned_floor = learning.get_confidence_floor("copy_trading")

@@ -13,17 +13,14 @@ import time
 import config
 
 # ─── Logging setup (idempotent — safe on watchdog restarts) ──────────────────
-_log_file = "/data/.openclaw/workspace/wolf/wolf.log"
 _root = logging.getLogger()
 if not _root.handlers:
     _fmt = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s — %(message)s")
     _sh = logging.StreamHandler(sys.stdout)
     _sh.setFormatter(_fmt)
-    _fh = logging.FileHandler(_log_file, mode="a")
-    _fh.setFormatter(_fmt)
     _root.setLevel(logging.INFO)
     _root.addHandler(_sh)
-    _root.addHandler(_fh)
+    # NOTE: No FileHandler — watchdog.sh captures stdout → wolf.log (avoids duplicate lines)
 
 logger = logging.getLogger("wolf.main")
 
@@ -64,6 +61,9 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
                 # Force-exit stale position — don't let capital sit frozen
                 from market_resolver import get_current_price
                 prices = get_current_price(trade.market_id)
+                if prices is None:
+                    logger.warning(f"[FORCE-EXIT] Price lookup failed for {trade.market_id[:20]} — skipping this cycle")
+                    continue
                 current_px = prices[0] if trade.side == "YES" else prices[1]
                 if current_px and current_px > 0:
                     # Exit at current market price (partial value recovery)
@@ -86,7 +86,7 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
                             exit_price=current_px, pnl=pnl,
                         )
                     except Exception as _e:
-                        logger.debug(f"Force-exit DB update: {_e}")
+                        logger.warning(f"Force-exit DB update FAILED: {_e}")
                     from alerts.telegram_alerts import alert_trade_exit
                     alert_trade_exit(
                         strategy=trade.strategy, market=trade.market_id,

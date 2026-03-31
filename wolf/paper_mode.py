@@ -28,6 +28,7 @@ class PaperTrade:
     resolved: bool = False
     won: Optional[bool] = None
     market_end: float = 0.0  # unix timestamp of market expiry (0 = unknown)
+    days_to_expiry: float = 0.0  # days until market resolves at entry time
 
 
 class PaperTrader:
@@ -92,7 +93,7 @@ class PaperTrader:
 
     def place_trade(self, strategy: str, venue: str, market_id: str,
                     side: str, size: float, entry_price: float,
-                    market_end: float = 0.0) -> PaperTrade:
+                    market_end: float = 0.0, days_to_expiry: float = 0.0) -> PaperTrade:
         trade = PaperTrade(
             timestamp=time.time(),
             strategy=strategy,
@@ -102,6 +103,7 @@ class PaperTrader:
             size=size,
             entry_price=entry_price,
             market_end=market_end,
+            days_to_expiry=days_to_expiry,
         )
         self.open_trades.append(trade)
         logger.info(f"[PAPER] {venue} {strategy} | {market_id} {side} ${size:.2f} @ {entry_price:.3f}")
