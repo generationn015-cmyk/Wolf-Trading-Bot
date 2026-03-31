@@ -301,39 +301,143 @@ _LOGIN_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🐺 Wolf — Login</title>
+<title>🐺 Wolf Mission Control</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0f1a; color: #c0cfe0; font-family: 'Segoe UI', sans-serif;
-         display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { background: #111827; border: 1px solid #1e2d40; border-radius: 12px;
-          padding: 40px 36px; width: 360px; text-align: center; }
-  h1 { font-size: 2em; margin-bottom: 6px; }
-  .sub { color: #556070; font-size: 0.85em; margin-bottom: 28px; }
+  body { background: #000; color: #fff; font-family: 'Segoe UI', Arial, sans-serif;
+         display: flex; align-items: center; justify-content: center; min-height: 100vh;
+         overflow: hidden; }
+
+  /* ── Money rain canvas ── */
+  #money-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                  pointer-events: none; z-index: 0; }
+
+  /* ── Card ── */
+  .card { position: relative; z-index: 10;
+          background: rgba(0,0,0,0.82); border: 1px solid #2a2a2a;
+          border-radius: 16px; padding: 44px 40px 36px; width: 380px;
+          text-align: center; backdrop-filter: blur(12px);
+          box-shadow: 0 0 60px rgba(0,180,80,0.15), 0 0 120px rgba(0,0,0,0.6); }
+
+  .banner { background: #f5c518; color: #000; font-size: 0.72em; font-weight: 900;
+            letter-spacing: 0.18em; text-transform: uppercase; padding: 5px 14px;
+            border-radius: 4px; display: inline-block; margin-bottom: 18px; }
+
+  .title { font-size: 2.4em; font-weight: 900; letter-spacing: 0.04em;
+           text-shadow: 0 0 30px rgba(245,197,24,0.5); margin-bottom: 2px; }
+  .subtitle { font-size: 0.8em; color: #888; letter-spacing: 0.15em;
+              text-transform: uppercase; margin-bottom: 28px; }
+
+  .wolf-icon { font-size: 3.2em; margin-bottom: 8px; display: block;
+               filter: drop-shadow(0 0 12px rgba(245,197,24,0.7)); }
+
   input[type=password] {
-    width: 100%; padding: 12px 16px; background: #0d1421; border: 1px solid #1e2d40;
-    border-radius: 8px; color: #c0cfe0; font-size: 1em; margin-bottom: 14px; outline: none;
+    width: 100%; padding: 13px 18px;
+    background: rgba(255,255,255,0.05); border: 1px solid #333;
+    border-radius: 8px; color: #fff; font-size: 1em; margin-bottom: 14px;
+    outline: none; letter-spacing: 0.12em; transition: border-color 0.2s;
   }
-  input[type=password]:focus { border-color: #3b82f6; }
-  button { width: 100%; padding: 12px; background: #3b82f6; border: none;
-           border-radius: 8px; color: #fff; font-size: 1em; font-weight: 600;
-           cursor: pointer; transition: background 0.2s; }
-  button:hover { background: #2563eb; }
-  .err { color: #f87171; font-size: 0.85em; margin-top: 10px; min-height: 20px; }
+  input[type=password]:focus { border-color: #f5c518; box-shadow: 0 0 0 2px rgba(245,197,24,0.2); }
+  input[type=password]::placeholder { color: #555; letter-spacing: 0.05em; }
+
+  button { width: 100%; padding: 13px;
+           background: linear-gradient(135deg, #f5c518 0%, #d4a00a 100%);
+           border: none; border-radius: 8px; color: #000;
+           font-size: 1em; font-weight: 800; letter-spacing: 0.08em;
+           text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+  button:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(245,197,24,0.4); }
+  button:active { transform: translateY(0); }
+
+  .footer { margin-top: 20px; font-size: 0.7em; color: #444; letter-spacing: 0.08em; }
+  .err { color: #ff4444; font-size: 0.82em; margin-top: 10px; min-height: 18px; }
 </style>
 </head>
 <body>
+
+<canvas id="money-canvas"></canvas>
+
 <div class="card">
-  <h1>🐺</h1>
-  <div class="sub">Wolf Mission Control</div>
-  <input type="password" id="pw" placeholder="Password" autofocus
+  <span class="wolf-icon">🐺</span>
+  <div class="banner">Stratton Oakmont Inc.</div>
+  <div class="title">THE WOLF</div>
+  <div class="subtitle">Authorized Access Only</div>
+  <input type="password" id="pw" placeholder="Enter access code" autofocus
          onkeydown="if(event.key==='Enter') login()">
-  <button onclick="login()">Enter</button>
+  <button onclick="login()">ENTER THE FLOOR</button>
   <div class="err" id="err"></div>
+  <div class="footer">Wolf System v2 &nbsp;·&nbsp; Mission Control</div>
 </div>
+
 <script>
+// ── Money rain ────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('money-canvas');
+const ctx = canvas.getContext('2d');
+
+const SYMBOLS = ['$', '💵', '💰', '$', '$', '💵', '$', '100', '$'];
+const GREEN = ['#00c853','#00e676','#69f0ae','#b9f6ca','#a5d6a7'];
+
+let bills = [];
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); spawnBills(); });
+
+function spawnBills() {
+  bills = [];
+  const count = Math.floor(canvas.width / 28);
+  for (let i = 0; i < count; i++) {
+    bills.push(makeBill(Math.random() * canvas.height));
+  }
+}
+
+function makeBill(startY) {
+  return {
+    x:       Math.random() * canvas.width,
+    y:       startY !== undefined ? startY : -40,
+    speed:   1.2 + Math.random() * 2.8,
+    size:    13 + Math.random() * 18,
+    symbol:  SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
+    color:   GREEN[Math.floor(Math.random() * GREEN.length)],
+    opacity: 0.18 + Math.random() * 0.55,
+    sway:    (Math.random() - 0.5) * 0.8,
+    rot:     (Math.random() - 0.5) * 0.3,
+    angle:   Math.random() * Math.PI * 2,
+  };
+}
+
+spawnBills();
+
+function animateMoney() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let b of bills) {
+    ctx.save();
+    ctx.globalAlpha = b.opacity;
+    ctx.font = `bold ${b.size}px monospace`;
+    ctx.fillStyle = b.color;
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.angle);
+    ctx.fillText(b.symbol, 0, 0);
+    ctx.restore();
+
+    b.y     += b.speed;
+    b.x     += b.sway;
+    b.angle += b.rot * 0.02;
+
+    if (b.y > canvas.height + 40) {
+      Object.assign(b, makeBill());
+      b.y = -40;
+    }
+  }
+  requestAnimationFrame(animateMoney);
+}
+animateMoney();
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 async function login() {
-  const pw = document.getElementById('pw').value;
+  const pw  = document.getElementById('pw').value;
   const err = document.getElementById('err');
   err.textContent = '';
   try {
@@ -346,7 +450,7 @@ async function login() {
     if (r.ok) {
       window.location.href = '/';
     } else {
-      err.textContent = 'Incorrect password.';
+      err.textContent = 'Access denied.';
       document.getElementById('pw').value = '';
       document.getElementById('pw').focus();
     }
