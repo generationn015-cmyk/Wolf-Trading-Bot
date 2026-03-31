@@ -162,16 +162,26 @@ def check_db_integrity(config) -> list[dict]:
             FROM paper_trades WHERE resolved=1 AND simulated=0
             GROUP BY track_key HAVING t >= 5
         """).fetchall()
+        # Load paused strategies once for all checks below
+        _paused_strats: set = set()
+        try:
+            import json as _json, os as _os
+            _sp = _os.path.join(_os.path.dirname(config.DB_PATH), 'learning_state.json')
+            if _os.path.exists(_sp):
+                _paused_strats = set(_json.loads(open(_sp).read()).get('paused', []))
+        except Exception:
+            pass
+
         for strat, t, w in rows:
             wr = (w or 0) / t
-            if wr < 0.15:
+            if wr < 0.15 and strat not in _paused_strats:
                 key = f"zero_wr_{strat}"
                 if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
                     _db_check_cooldown[key] = now
                     issues.append({
                         "name": f"zero_wr_{strat}",
                         "severity": "HIGH",
-                        "description": f"{strat} has {wr:.0%} WR on {t} real trades — strategy may be broken",
+                        "description": f"{strat} has {wr:.0%} WR on {t} real trades — strategy not paused, needs review",
                         "count": t,
                         "sample": f"{strat}: {w}/{t} wins ({wr:.0%} WR)",
                         "auto_fix": False,
@@ -195,13 +205,17 @@ def check_db_integrity(config) -> list[dict]:
             if len(last10) >= 10:
                 recent_wr = sum(r[0] for r in last10) / 10
                 if recent_wr < 0.40:
+                    # If learning engine already paused this strategy, it's handled — no alert
+                    if track_key in _paused_strats:
+                        continue
+
                     key = f"rolling_wr_drop_{track_key}"
                     if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
                         _db_check_cooldown[key] = now
                         issues.append({
                             "name": f"rolling_wr_drop_{track_key}",
                             "severity": "HIGH",
-                            "description": f"{track_key} last-10-trade WR={recent_wr:.0%} — below 40% rolling threshold",
+                            "description": f"{track_key} last-10-trade WR={recent_wr:.0%} — strategy not paused, needs review",
                             "count": 10,
                             "sample": f"{track_key}: {sum(r[0] for r in last10)}/10 wins rolling",
                             "auto_fix": False,
@@ -486,7 +500,18 @@ def guardian_loop(log_path: str, config) -> None:
 
 
 def start(log_path: str, config) -> threading.Thread:
-    """Spawn guardian as a daemon thread. Call from main.py after Wolf boots."""
+    """Spawn guardian as a daemon thread. Call from main.py after Wolf boots.
+    Initializes scan position to END of current log so only new lines are scanned —
+    old pre-fix history is never re-evaluated."""
+    global _last_scan_pos
+    # Seek to end of existing log — Guardian only watches from THIS boot forward
+    if os.path.exists(log_path):
+        try:
+            _last_scan_pos = os.path.getsize(log_path)
+            logger.info(f"[GUARDIAN] Log scan starts at byte {_last_scan_pos} (skipping history)")
+        except Exception:
+            _last_scan_pos = 0
+
     t = threading.Thread(
         target=guardian_loop,
         args=(log_path, config),

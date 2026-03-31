@@ -5,6 +5,8 @@
   },
   "wallet_penalty": {},
   "bad_ranges": [],
-  "paused": [],
-  "saved_at": 1774981014.375846
+  "paused": [
+    "value_bet"
+  ],
+  "saved_at": 1774981890.1112707
 }

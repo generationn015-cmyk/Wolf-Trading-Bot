@@ -110,7 +110,7 @@ class LearningEngine:
                     rolling_wr = sum(r[0] for r in last10) / len(last10) if len(last10) >= 10 else None
 
                     # ── Pause strategy if rolling WR collapses below 25% ─────
-                    if rolling_wr is not None and rolling_wr < 0.25 and total >= 15:
+                    if rolling_wr is not None and rolling_wr < 0.25 and total >= 10:
                         if strat not in self.paused_strategies:
                             self.paused_strategies.add(strat)
                             msg = f"[{strat}] PAUSED — rolling WR={rolling_wr:.0%} on last 10 trades (total={total})"
