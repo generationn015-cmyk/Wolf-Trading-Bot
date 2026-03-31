@@ -29,6 +29,7 @@ class PaperTrade:
     won: Optional[bool] = None
     market_end: float = 0.0  # unix timestamp of market expiry (0 = unknown)
     days_to_expiry: float = 0.0  # days until market resolves at entry time
+    void: bool = False  # True = force-exit with no price data (excluded from WR)
 
 
 class PaperTrader:
@@ -50,7 +51,7 @@ class PaperTrader:
                 # Load resolved trades for stats/gate
                 rows = conn.execute(
                     "SELECT strategy, venue, market_id, side, size, entry_price, "
-                    "exit_price, pnl, resolved, won, timestamp FROM paper_trades "
+                    "exit_price, pnl, resolved, won, timestamp, COALESCE(void,0) FROM paper_trades "
                     "WHERE resolved=1 AND simulated=0 ORDER BY timestamp ASC"
                 ).fetchall()
                 for row in rows:
@@ -58,7 +59,7 @@ class PaperTrader:
                         timestamp=row[10], strategy=row[0], venue=row[1],
                         market_id=row[2], side=row[3], size=row[4],
                         entry_price=row[5], exit_price=row[6], pnl=row[7],
-                        resolved=True, won=bool(row[9]),
+                        resolved=True, won=bool(row[9]), void=bool(row[11]),
                     )
                     self.trades.append(t)
                     if t.pnl is not None:
@@ -166,13 +167,15 @@ class PaperTrader:
 
     def get_stats(self) -> dict:
         resolved = [t for t in self.trades if t.resolved]
-        total = len(resolved)
-        wins = [t for t in resolved if t.won]
+        # Exclude void trades (force-exits with no price) from WR/stats
+        scoreable = [t for t in resolved if not getattr(t, 'void', False)]
+        total = len(scoreable)
+        wins = [t for t in scoreable if t.won]
         win_rate = len(wins) / total if total else 0.0
         total_pnl = sum(t.pnl for t in resolved if t.pnl is not None)
         gate_passed, gate_msg = self.has_passed_gate()
         by_strategy = {}
-        for t in resolved:
+        for t in scoreable:
             s = t.strategy
             if s not in by_strategy:
                 by_strategy[s] = {"trades": 0, "wins": 0, "pnl": 0.0}

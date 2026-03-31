@@ -1,37 +1,48 @@
 {
   "period_hours": 24,
-  "generated_at": 1774925607.1539774,
+  "generated_at": 1774926971.3325965,
   "overall": {
-    "total_trades": 6,
-    "wins": 2,
-    "losses": 4,
-    "win_rate": 0.3333333333333333,
-    "total_pnl": 267.49,
-    "avg_pnl_per_trade": 44.58,
+    "total_trades": 11,
+    "wins": 5,
+    "losses": 6,
+    "win_rate": 0.45454545454545453,
+    "total_pnl": 273.35,
+    "avg_pnl_per_trade": 24.85,
     "best_trade": 273.65,
     "worst_trade": -10.86,
-    "avg_confidence": 0.747
+    "avg_confidence": 0.736
   },
   "by_strategy": {
     "copy_trading": {
-      "total": 2,
+      "total": 4,
       "wins": 0,
       "win_rate": 0.0,
       "pnl": 0,
       "avg_pnl": 0,
-      "avg_confidence": 0.717,
-      "avg_price": 0.542,
+      "avg_confidence": 0.715,
+      "avg_price": 0.478,
       "best": 0,
       "worst": 0
     },
-    "value_bet": {
-      "total": 4,
+    "market_making": {
+      "total": 2,
       "wins": 2,
-      "win_rate": 0.5,
-      "pnl": 267.49,
-      "avg_pnl": 66.87,
-      "avg_confidence": 0.762,
-      "avg_price": 0.228,
+      "win_rate": 1.0,
+      "pnl": 1.71,
+      "avg_pnl": 0.85,
+      "avg_confidence": 0.715,
+      "avg_price": 0.495,
+      "best": 1.05,
+      "worst": 0.66
+    },
+    "value_bet": {
+      "total": 5,
+      "wins": 3,
+      "win_rate": 0.6,
+      "pnl": 271.64,
+      "avg_pnl": 54.33,
+      "avg_confidence": 0.761,
+      "avg_price": 0.259,
       "best": 273.65,
       "worst": -10.86
     }
@@ -53,9 +64,9 @@
     },
     {
       "range": "0.3\u20130.4",
-      "total": 1,
-      "win_rate": 0.0,
-      "pnl": 0,
+      "total": 4,
+      "win_rate": 0.5,
+      "pnl": 5.21,
       "flag": ""
     },
     {
@@ -63,6 +74,20 @@
       "total": 1,
       "win_rate": 0.0,
       "pnl": -10.86,
+      "flag": ""
+    },
+    {
+      "range": "0.5\u20130.6",
+      "total": 1,
+      "win_rate": 0.0,
+      "pnl": 0,
+      "flag": ""
+    },
+    {
+      "range": "0.6\u20130.7",
+      "total": 1,
+      "win_rate": 1.0,
+      "pnl": 0.66,
       "flag": ""
     },
     {
@@ -82,9 +107,9 @@
     },
     {
       "hour_et": 10,
-      "total": 2,
-      "win_rate": 0.0,
-      "pnl": -10.86
+      "total": 7,
+      "win_rate": 0.429,
+      "pnl": -5.0
     }
   ],
   "worst_losses": [
@@ -241,10 +266,16 @@
       "total": 3,
       "win_rate": 1.0,
       "pnl": 157.96
+    },
+    {
+      "wallet": "0x6ac5bb06..",
+      "total": 3,
+      "win_rate": 0.667,
+      "pnl": 95.84
     }
   ],
   "lessons": [
-    "\ud83d\udd34 Overall WR 33.3% \u2014 below target. Tighten filters.",
+    "\ud83d\udd34 Overall WR 45.5% \u2014 below target. Tighten filters.",
     "\u23f0 Best hour: 09:00 ET (50.0% WR, $+278)"
   ]
 }

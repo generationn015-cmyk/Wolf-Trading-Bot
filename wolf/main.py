@@ -67,7 +67,7 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
                     _fails = getattr(_resolve_paper_trades, _fail_key, 0) + 1
                     setattr(_resolve_paper_trades, _fail_key, _fails)
                     if _fails >= 3:
-                        logger.warning(f"[FORCE-EXIT] Price lookup failed {_fails}x for {trade.market_id[:20]} — closing at entry (pnl=$0)")
+                        logger.warning(f"[FORCE-EXIT] Price lookup failed {_fails}x for {trade.market_id[:20]} — closing at entry (pnl=$0, void)")
                         setattr(_resolve_paper_trades, _fail_key, 0)
                         result = paper.resolve_trade(trade.market_id, "NO" if trade.side == "YES" else "YES")
                         if result:
@@ -77,7 +77,7 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
                                 journal.update_paper_trade_resolved(
                                     market_id=trade.market_id, strategy=trade.strategy,
                                     side=trade.side, won=False,
-                                    exit_price=trade.entry_price, pnl=0.0,
+                                    exit_price=trade.entry_price, pnl=0.0, void=True,
                                 )
                             except Exception as _e:
                                 logger.warning(f"Force-exit(no-price) DB update FAILED: {_e}")

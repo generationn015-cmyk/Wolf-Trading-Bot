@@ -92,7 +92,7 @@ def push_to_dashboard(force: bool = False) -> bool:
                    SUM(pnl),
                    MAX(CASE WHEN won=1 THEN 1 ELSE 0 END),  -- streak helper
                    MIN(timestamp), MAX(timestamp)
-            FROM paper_trades WHERE resolved=1 AND simulated=0
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
         """).fetchone()
         total_t = int(stats[0] or 0)
         wins    = int(stats[1] or 0)
@@ -106,7 +106,7 @@ def push_to_dashboard(force: bool = False) -> bool:
 
         # Win streak calculation
         recent = c.execute("""
-            SELECT won FROM paper_trades WHERE resolved=1 AND simulated=0
+            SELECT won FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
             ORDER BY timestamp DESC LIMIT 20
         """).fetchall()
         streak, best = 0, 0
@@ -123,8 +123,8 @@ def push_to_dashboard(force: bool = False) -> bool:
         # Daily / weekly P&L
         day_start   = now - 86400
         week_start  = now - 604800
-        daily_pnl   = float(c.execute("SELECT SUM(pnl) FROM paper_trades WHERE resolved=1 AND simulated=0 AND timestamp > ?", (day_start,)).fetchone()[0] or 0)
-        weekly_pnl  = float(c.execute("SELECT SUM(pnl) FROM paper_trades WHERE resolved=1 AND simulated=0 AND timestamp > ?", (week_start,)).fetchone()[0] or 0)
+        daily_pnl   = float(c.execute("SELECT SUM(pnl) FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0 AND timestamp > ?", (day_start,)).fetchone()[0] or 0)
+        weekly_pnl  = float(c.execute("SELECT SUM(pnl) FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0 AND timestamp > ?", (week_start,)).fetchone()[0] or 0)
 
         # ── 1. Status ─────────────────────────────────────────────────────────
         _post("status", {
@@ -174,7 +174,7 @@ def push_to_dashboard(force: bool = False) -> bool:
         closed_rows = c.execute("""
             SELECT id, strategy, market_id, side, size, entry_price,
                    exit_price, pnl, timestamp, won, reason
-            FROM paper_trades WHERE resolved=1 AND simulated=0
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
             ORDER BY timestamp DESC LIMIT 50
         """).fetchall()
         for row in closed_rows:
@@ -204,7 +204,7 @@ def push_to_dashboard(force: bool = False) -> bool:
             SELECT date(timestamp, 'unixepoch') as dt,
                    SUM(pnl) as daily,
                    COUNT(*) as trades
-            FROM paper_trades WHERE resolved=1 AND simulated=0
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
             GROUP BY dt ORDER BY dt ASC
         """).fetchall()
         cumulative = 0
@@ -303,7 +303,7 @@ def push_to_dashboard(force: bool = False) -> bool:
                    SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
                    SUM(pnl) as pnl,
                    AVG(entry_price) as avg_price
-            FROM paper_trades WHERE resolved=1 AND simulated=0
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
             GROUP BY strategy
         """).fetchall()
 

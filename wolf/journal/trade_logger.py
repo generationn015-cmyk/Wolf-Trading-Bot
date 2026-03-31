@@ -144,14 +144,14 @@ class TradeLogger:
 
     def update_paper_trade_resolved(self, market_id: str, strategy: str,
                                      side: str, won: bool, exit_price: float,
-                                     pnl: float):
+                                     pnl: float, void: bool = False):
         """Update an open paper trade to resolved status."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 UPDATE paper_trades
-                SET resolved=1, won=?, exit_price=?, pnl=?
+                SET resolved=1, won=?, exit_price=?, pnl=?, void=?
                 WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0
-            """, (1 if won else 0, exit_price, pnl, market_id, strategy, side))
+            """, (1 if won else 0, exit_price, pnl, 1 if void else 0, market_id, strategy, side))
             conn.commit()
 
     def log_signal(self, signal: dict, executed: bool = False, block_reason: str = ""):
@@ -193,7 +193,7 @@ class TradeLogger:
         with sqlite3.connect(self.db_path) as conn:
             paper = conn.execute("""
                 SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), SUM(pnl)
-                FROM paper_trades WHERE resolved=1 AND simulated=0
+                FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
             """).fetchone()
             total_p = paper[0] or 0
             wins_p  = paper[1] or 0
@@ -215,7 +215,7 @@ class TradeLogger:
                        SUM(pnl) as pnl,
                        AVG(confidence) as avg_conf,
                        AVG(entry_price) as avg_price
-                FROM paper_trades WHERE resolved=1 AND simulated=0
+                FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
                 GROUP BY strategy
             """).fetchall()
             by_strategy = {}
@@ -247,7 +247,7 @@ class TradeLogger:
         """Return recent resolved paper trades for analysis."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            q = "SELECT * FROM paper_trades WHERE resolved=1 AND simulated=0"
+            q = "SELECT * FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0"
             params = []
             if strategy:
                 q += " AND strategy=?"
