@@ -143,13 +143,47 @@ def _extract_outcome(m: dict) -> str | None:
 
 # In-memory map of conditionId → numeric id (populated as markets are seen)
 _cid_to_id: dict[str, str] = {}
+_cid_to_slug: dict[str, str] = {}  # conditionId → slug
+
+
+def _preload_slugs_from_db() -> None:
+    """Load conditionId to slug mappings from DB for existing open positions."""
+    try:
+        import sqlite3 as _sqlite3
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+        import config as _cfg
+        _conn = _sqlite3.connect(_cfg.DB_PATH)
+        _rows = _conn.execute(
+            "SELECT market_id, slug FROM paper_trades"
+            " WHERE resolved=0 AND slug IS NOT NULL AND slug != ''"
+        ).fetchall()
+        _conn.close()
+        for _cid, _slug in _rows:
+            if _cid and _slug:
+                _cid_to_slug[_cid] = _slug
+        if _rows:
+            logger.debug(f"Preloaded {len(_rows)} slug mappings from DB")
+    except Exception as _e:
+        logger.debug(f"Slug preload failed: {_e}")
+
+
+_preload_slugs_from_db()
 
 def _register_market(m: dict):
-    """Cache the conditionId → numeric id mapping for future lookups."""
+    """Cache the conditionId → numeric id and slug mappings for future lookups."""
     cid = m.get("conditionId", "")
     mid = str(m.get("id", ""))
+    slug = m.get("slug", "")
     if cid and mid:
         _cid_to_id[cid] = mid
+    if cid and slug:
+        _cid_to_slug[cid] = slug
+
+def register_slug(cid: str, slug: str) -> None:
+    """Externally register a conditionId → slug mapping (called from copy_trading)."""
+    if cid and slug:
+        _cid_to_slug[cid] = slug
 
 
 def get_current_price(market_id: str) -> tuple[float, float] | None:
@@ -226,6 +260,26 @@ def get_current_price(market_id: str) -> tuple[float, float] | None:
 
     except Exception as e:
         logger.debug(f"get_current_price error {market_id[:20]}: {e}")
+
+    # Strategy 3: slug-based lookup (for copy_trading markets where conditionId filter is broken)
+    slug = _cid_to_slug.get(market_id, "")
+    if slug:
+        try:
+            resp = requests.get(
+                "https://gamma-api.polymarket.com/markets",
+                params={"slug": slug},
+                timeout=6,
+            )
+            if resp.ok:
+                for m in (resp.json() if isinstance(resp.json(), list) else [resp.json()]):
+                    if m.get("conditionId", "").lower() == market_id.lower() or m.get("slug", "") == slug:
+                        prices = _extract_prices(m)
+                        if prices:
+                            _price_cache[market_id] = (*prices, now)
+                            _register_market(m)
+                            return prices
+        except Exception as e:
+            logger.debug(f"slug lookup error {slug}: {e}")
 
     return None
 

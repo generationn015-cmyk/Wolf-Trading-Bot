@@ -177,6 +177,14 @@ class CopyTrader:
 
                 # Extract trade details
                 market_id = latest.get("conditionId", "")
+                market_slug = latest.get("slug", "")
+                # Register slug for price lookup (gamma conditionId filter is broken)
+                if market_id and market_slug:
+                    try:
+                        from market_resolver import register_slug
+                        register_slug(market_id, market_slug)
+                    except Exception:
+                        pass
                 side = latest.get("side", "").upper()  # "BUY"/"SELL" → normalize below
                 if side == "BUY":
                     side = "YES"
@@ -238,6 +246,7 @@ class CopyTrader:
                         "strategy": "copy_trading",
                         "venue": "polymarket",
                         "market_id": market_id,
+                            "slug": market_slug,
                         "side": side,
                         "edge": confidence - 0.5,
                         "confidence": confidence,

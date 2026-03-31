@@ -1,28 +1,39 @@
 {
   "period_hours": 24,
-  "generated_at": 1774923233.3581138,
+  "generated_at": 1774925607.1539774,
   "overall": {
-    "total_trades": 3,
+    "total_trades": 6,
     "wins": 2,
-    "losses": 1,
-    "win_rate": 0.6666666666666666,
-    "total_pnl": 278.35,
-    "avg_pnl_per_trade": 92.78,
+    "losses": 4,
+    "win_rate": 0.3333333333333333,
+    "total_pnl": 267.49,
+    "avg_pnl_per_trade": 44.58,
     "best_trade": 273.65,
-    "worst_trade": -3.56,
-    "avg_confidence": 0.764
+    "worst_trade": -10.86,
+    "avg_confidence": 0.747
   },
   "by_strategy": {
+    "copy_trading": {
+      "total": 2,
+      "wins": 0,
+      "win_rate": 0.0,
+      "pnl": 0,
+      "avg_pnl": 0,
+      "avg_confidence": 0.717,
+      "avg_price": 0.542,
+      "best": 0,
+      "worst": 0
+    },
     "value_bet": {
-      "total": 3,
+      "total": 4,
       "wins": 2,
-      "win_rate": 0.667,
-      "pnl": 278.35,
-      "avg_pnl": 92.78,
-      "avg_confidence": 0.764,
-      "avg_price": 0.169,
+      "win_rate": 0.5,
+      "pnl": 267.49,
+      "avg_pnl": 66.87,
+      "avg_confidence": 0.762,
+      "avg_price": 0.228,
       "best": 273.65,
-      "worst": -3.56
+      "worst": -10.86
     }
   },
   "price_buckets": [
@@ -39,14 +50,41 @@
       "win_rate": 0.5,
       "pnl": 4.7,
       "flag": ""
+    },
+    {
+      "range": "0.3\u20130.4",
+      "total": 1,
+      "win_rate": 0.0,
+      "pnl": 0,
+      "flag": ""
+    },
+    {
+      "range": "0.4\u20130.5",
+      "total": 1,
+      "win_rate": 0.0,
+      "pnl": -10.86,
+      "flag": ""
+    },
+    {
+      "range": "0.7\u20130.8",
+      "total": 1,
+      "win_rate": 0.0,
+      "pnl": 0,
+      "flag": ""
     }
   ],
   "hourly_performance": [
     {
       "hour_et": 9,
-      "total": 3,
-      "win_rate": 0.667,
+      "total": 4,
+      "win_rate": 0.5,
       "pnl": 278.35
+    },
+    {
+      "hour_et": 10,
+      "total": 2,
+      "win_rate": 0.0,
+      "pnl": -10.86
     }
   ],
   "worst_losses": [
@@ -178,6 +216,13 @@
     },
     {
       "strategy": "value_bet",
+      "entry_price": 0.405,
+      "side": "NO",
+      "pnl": -10.86,
+      "reason": "ValueBet: Value NO@0.405 mid-range vol=$676,848 | New Rihanna Album before GTA V"
+    },
+    {
+      "strategy": "value_bet",
       "entry_price": 0.225,
       "side": "NO",
       "pnl": -3.56,
@@ -187,8 +232,8 @@
   "wallet_performance": [
     {
       "wallet": "0xd6a3f0ec..",
-      "total": 5,
-      "win_rate": 0.8,
+      "total": 6,
+      "win_rate": 0.667,
       "pnl": 302.22
     },
     {
@@ -199,7 +244,7 @@
     }
   ],
   "lessons": [
-    "\ud83d\udd34 Overall WR 66.7% \u2014 below target. Tighten filters.",
-    "\u23f0 Best hour: 09:00 ET (66.7% WR, $+278)"
+    "\ud83d\udd34 Overall WR 33.3% \u2014 below target. Tighten filters.",
+    "\u23f0 Best hour: 09:00 ET (50.0% WR, $+278)"
   ]
 }

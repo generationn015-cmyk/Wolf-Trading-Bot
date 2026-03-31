@@ -286,7 +286,7 @@ def push_to_dashboard(force: bool = False) -> bool:
         lessons_raw = []
         try:
             sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            from learning.learning_engine import LearningEngine
+            from learning_engine import LearningEngine
             le = LearningEngine()
             status = le.get_status()
             progress = le.get_progress()
@@ -318,11 +318,10 @@ def push_to_dashboard(force: bool = False) -> bool:
 
         # The site uses /api/wolf/state GET which aggregates — push learning via webhook
         # Push activity log entry for learning status
-        _post("activity", {
-            "type": "SYSTEM",
+        _post_webhook("alert", {
             "message": f"Evolution: {len(lessons)} lessons · {total_t} trades analyzed · WR {win_rate}%",
             "priority": "low",
-        }) if False else None  # activity endpoint is 404 — skip
+        })
 
         conn.close()
         logger.debug(f"Dashboard full sync: {open_pos} open, {total_t} resolved, WR {win_rate}%")

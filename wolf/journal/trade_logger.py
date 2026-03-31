@@ -117,8 +117,8 @@ class TradeLogger:
                 INSERT OR IGNORE INTO paper_trades
                     (timestamp, strategy, venue, market_id, side, size,
                      entry_price, exit_price, pnl, won, resolved, confidence, edge, reason,
-                     market_end, days_to_expiry)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     market_end, days_to_expiry, slug)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 trade.get("timestamp", time.time()),
                 trade.get("strategy"), trade.get("venue"),
@@ -131,6 +131,7 @@ class TradeLogger:
                 trade.get("reason"),
                 trade.get("market_end", 0.0),
                 trade.get("days_to_expiry", 0.0),
+                trade.get("slug", ""),
             ))
             conn.commit()
             inserted = cur.rowcount > 0
