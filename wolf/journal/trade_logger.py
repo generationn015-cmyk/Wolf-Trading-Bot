@@ -148,14 +148,26 @@ class TradeLogger:
     def update_paper_trade_resolved(self, market_id: str, strategy: str,
                                      side: str, won: bool, exit_price: float,
                                      pnl: float, void: bool = False):
-        """Update an open paper trade to resolved status."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                UPDATE paper_trades
-                SET resolved=1, won=?, exit_price=?, pnl=?, void=?
-                WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0
-            """, (1 if won else 0, exit_price, pnl, 1 if void else 0, market_id, strategy, side))
-            conn.commit()
+        """Update an open paper trade to resolved status.
+        Retries up to 3x on lock/busy to prevent db_write_fail Guardian alerts."""
+        import time as _time
+        for _attempt in range(3):
+            try:
+                conn = sqlite3.connect(self.db_path, timeout=10)
+                conn.execute("""
+                    UPDATE paper_trades
+                    SET resolved=1, won=?, exit_price=?, pnl=?, void=?
+                    WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0
+                """, (1 if won else 0, exit_price, pnl, 1 if void else 0, market_id, strategy, side))
+                conn.commit()
+                conn.close()
+                return
+            except sqlite3.OperationalError as e:
+                if _attempt < 2:
+                    _time.sleep(0.5 * (_attempt + 1))
+                    continue
+                logger.error(f"DB update FAILED after 3 attempts: {e}")
+                raise
 
     def log_signal(self, signal: dict, executed: bool = False, block_reason: str = ""):
         with sqlite3.connect(self.db_path) as conn:

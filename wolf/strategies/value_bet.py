@@ -172,10 +172,15 @@ class ValueBetStrategy:
         return None, None, None, None
 
     async def scan(self) -> list[dict]:
+        # Check if learning engine has paused this strategy due to WR collapse
+        if learning.is_strategy_paused("value_bet"):
+            logger.debug("[VALUE_BET] Strategy paused by learning engine — skipping scan")
+            return []
+
         signals = []
         now = time.time()
         markets = self._get_markets()
-        
+
         # Track event families already signaled this cycle — one signal per underlying event
         # Prevents: holding Harvey YES@5yr + YES@10yr + YES@20yr simultaneously
         _event_families: set[str] = set()

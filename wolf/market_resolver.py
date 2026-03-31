@@ -147,23 +147,42 @@ _cid_to_slug: dict[str, str] = {}  # conditionId → slug
 
 
 def _preload_slugs_from_db() -> None:
-    """Load conditionId to slug mappings from DB for existing open positions."""
+    """Load conditionId→slug mappings from slug_cache table + open paper_trades.
+    Survives restarts — slug_cache table is the durable source of truth."""
     try:
         import sqlite3 as _sqlite3
         import sys as _sys, os as _os
         _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
         import config as _cfg
         _conn = _sqlite3.connect(_cfg.DB_PATH)
+        # Ensure slug_cache table exists
+        _conn.execute("""CREATE TABLE IF NOT EXISTS slug_cache (
+            market_id TEXT PRIMARY KEY,
+            slug TEXT NOT NULL,
+            updated_at REAL NOT NULL
+        )""")
+        _conn.commit()
+        # Load from persistent slug_cache first
         _rows = _conn.execute(
+            "SELECT market_id, slug FROM slug_cache"
+        ).fetchall()
+        for _cid, _slug in _rows:
+            if _cid and _slug:
+                _cid_to_slug[_cid] = _slug
+        # Also load from open positions (backfill any missing)
+        _open_rows = _conn.execute(
             "SELECT market_id, slug FROM paper_trades"
             " WHERE resolved=0 AND slug IS NOT NULL AND slug != ''"
         ).fetchall()
         _conn.close()
-        for _cid, _slug in _rows:
-            if _cid and _slug:
+        _extra = 0
+        for _cid, _slug in _open_rows:
+            if _cid and _slug and _cid not in _cid_to_slug:
                 _cid_to_slug[_cid] = _slug
-        if _rows:
-            logger.debug(f"Preloaded {len(_rows)} slug mappings from DB")
+                _extra += 1
+        total = len(_rows) + _extra
+        if total:
+            logger.debug(f"Preloaded {total} slug mappings from DB ({len(_rows)} persistent + {_extra} from open trades)")
     except Exception as _e:
         logger.debug(f"Slug preload failed: {_e}")
 
@@ -181,9 +200,23 @@ def _register_market(m: dict):
         _cid_to_slug[cid] = slug
 
 def register_slug(cid: str, slug: str) -> None:
-    """Externally register a conditionId → slug mapping (called from copy_trading)."""
-    if cid and slug:
-        _cid_to_slug[cid] = slug
+    """Externally register a conditionId → slug mapping.
+    Persists to slug_cache table so it survives process restarts."""
+    if not cid or not slug:
+        return
+    _cid_to_slug[cid] = slug
+    try:
+        import sqlite3 as _sqlite3, time as _time
+        import config as _cfg
+        _conn = _sqlite3.connect(_cfg.DB_PATH, timeout=3)
+        _conn.execute(
+            "INSERT OR REPLACE INTO slug_cache (market_id, slug, updated_at) VALUES (?,?,?)",
+            (cid, slug, _time.time())
+        )
+        _conn.commit()
+        _conn.close()
+    except Exception as _e:
+        logger.debug(f"[resolver] register_slug DB persist failed: {_e}")
 
 
 def get_current_price(market_id: str) -> tuple[float, float] | None:

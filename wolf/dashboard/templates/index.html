@@ -56,7 +56,7 @@
 <body>
 
 <h1>🐺 Wolf Mission Control</h1>
-<div class="subtitle">Real-time paper trading monitor · Auto-refresh every 10s</div>
+<div class="subtitle">Real-time paper trading monitor · <span id="ws-indicator" style="font-size:0.85em">🟡 Connecting…</span></div>
 
 <div id="mode-banner" class="mode-banner paper">📄 PAPER MODE</div>
 
@@ -216,9 +216,8 @@ function ageStr(min) {
   return `${(min/60).toFixed(1)}h`;
 }
 
-async function refresh() {
+async function applyStats(d) {
   try {
-    const d = await fetch('/api/stats').then(r => r.json());
 
     // Mode banner
     const banner = document.getElementById('mode-banner');
@@ -365,8 +364,54 @@ async function loadLogs() {
   } catch(e) {}
 }
 
-refresh();
-setInterval(refresh, 10000);
+// ── WebSocket live push (replaces polling) ────────────────────────────────
+let _ws = null;
+let _wsReconnectTimer = null;
+let _lastRefresh = 0;
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  _ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  _ws.onopen = () => {
+    console.log('[WS] Connected — live updates active');
+    document.getElementById('ws-indicator').textContent = '🟢 Live';
+    if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = null; }
+  };
+
+  _ws.onmessage = (event) => {
+    try {
+      const d = JSON.parse(event.data);
+      _lastRefresh = Date.now();
+      applyStats(d);
+    } catch(e) { console.warn('[WS] parse error', e); }
+  };
+
+  _ws.onclose = () => {
+    console.warn('[WS] Disconnected — reconnecting in 5s');
+    document.getElementById('ws-indicator').textContent = '🔴 Reconnecting…';
+    _ws = null;
+    _wsReconnectTimer = setTimeout(connectWS, 5000);
+  };
+
+  _ws.onerror = () => {
+    _ws && _ws.close();
+  };
+}
+
+// Rename old refresh() to applyStats() so WS can call it too
+async function refresh() {
+  try {
+    // Only fall back to REST poll if WS not connected
+    if (_ws && _ws.readyState === WebSocket.OPEN) return;
+    const d = await fetch('/api/stats').then(r => r.json());
+    applyStats(d);
+  } catch(e) { console.warn('[REST] refresh error', e); }
+}
+
+// Start WS + fallback REST poll every 15s in case WS is down
+connectWS();
+setInterval(refresh, 15000);
 setInterval(() => { if (currentTab === 'logs') loadLogs(); }, 15000);
 </script>
 </body>

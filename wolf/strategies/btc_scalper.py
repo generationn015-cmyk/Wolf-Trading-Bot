@@ -339,6 +339,7 @@ class BTCScalperStrategy:
         """
         Run all three sub-strategies against current BTC 15-min markets.
         Returns combined signal list — each sub-strategy fires independently.
+        Sub-strategies can be paused individually by learning engine.
         """
         signals = []
 
@@ -364,18 +365,21 @@ class BTCScalperStrategy:
                 except Exception:
                     pass
 
-            # Run each sub-strategy independently
-            sig1 = self._late_stage_arb(market, btc_move)
-            if sig1:
-                signals.append(sig1)
+            # Run each sub-strategy independently (skip if paused by learning engine)
+            if not learning.is_strategy_paused(TAG_LATE_STAGE):
+                sig1 = self._late_stage_arb(market, btc_move)
+                if sig1:
+                    signals.append(sig1)
 
-            sig2 = self._breakout_scalper(market, btc_move)
-            if sig2:
-                signals.append(sig2)
+            if not learning.is_strategy_paused(TAG_BREAKOUT):
+                sig2 = self._breakout_scalper(market, btc_move)
+                if sig2:
+                    signals.append(sig2)
 
-            sig3 = self._flash_crash(market, btc_move)
-            if sig3:
-                signals.append(sig3)
+            if not learning.is_strategy_paused(TAG_FLASH_CRASH):
+                sig3 = self._flash_crash(market, btc_move)
+                if sig3:
+                    signals.append(sig3)
 
         if signals:
             logger.info(f"[BTC_SCALPER] {len(signals)} signal(s): BTC move=${btc_move:+.0f}")

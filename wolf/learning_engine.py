@@ -28,7 +28,9 @@ class LearningEngine:
         self.min_confidence_overrides: dict[str, float] = {}  # per-strategy floor
         self.wallet_penalty: dict[str, float] = {}            # reduce weight on bad wallets
         self.bad_price_ranges: list[tuple] = []               # (low, high) → avoid
+        self.paused_strategies: set[str] = set()              # strategies suspended due to WR collapse
         self.lesson_log: list[str] = []                       # human-readable lessons
+        self._last_lesson_hash: dict[str, int] = {}
         self._state_path = os.path.join(os.path.dirname(config.DB_PATH), 'learning_state.json')
         self._load_state()
 
@@ -41,6 +43,7 @@ class LearningEngine:
                 self.min_confidence_overrides = state.get('floors', {})
                 self.wallet_penalty           = state.get('wallet_penalty', {})
                 self.bad_price_ranges         = [tuple(r) for r in state.get('bad_ranges', [])]
+                self.paused_strategies        = set(state.get('paused', []))
                 logger.info(f"📚 Learning state loaded: {len(self.min_confidence_overrides)} floors, "
                             f"{len(self.bad_price_ranges)} bad ranges")
         except Exception as e:
@@ -54,6 +57,7 @@ class LearningEngine:
                 'floors':         self.min_confidence_overrides,
                 'wallet_penalty': self.wallet_penalty,
                 'bad_ranges':     [list(r) for r in self.bad_price_ranges],
+                'paused':         list(self.paused_strategies),
                 'saved_at':       time.time(),
             }
             open(self._state_path, 'w').write(json.dumps(state, indent=2))
@@ -96,6 +100,29 @@ class LearningEngine:
                     if total < 5:  # Lowered from 10 — act faster on early data
                         continue
                     wr = wins / total
+
+                    # ── Rolling last-10-trade WR for this strategy ───────────
+                    last10 = conn.execute("""
+                        SELECT won FROM paper_trades
+                        WHERE resolved=1 AND simulated=0 AND COALESCE(sub_strategy,strategy)=?
+                        ORDER BY timestamp DESC LIMIT 10
+                    """, (strat,)).fetchall()
+                    rolling_wr = sum(r[0] for r in last10) / len(last10) if len(last10) >= 10 else None
+
+                    # ── Pause strategy if rolling WR collapses below 25% ─────
+                    if rolling_wr is not None and rolling_wr < 0.25 and total >= 15:
+                        if strat not in self.paused_strategies:
+                            self.paused_strategies.add(strat)
+                            msg = f"[{strat}] PAUSED — rolling WR={rolling_wr:.0%} on last 10 trades (total={total})"
+                            logger.warning(f"📚 {msg}")
+                            self.lesson_log.append(msg)
+                            lessons[strat] = {"action": "paused", "rolling_wr": rolling_wr, "total": total}
+                    # ── Unpause if rolling WR recovers above 55% ─────────────
+                    elif strat in self.paused_strategies and (rolling_wr is None or rolling_wr >= 0.55):
+                        self.paused_strategies.discard(strat)
+                        msg = f"[{strat}] UNPAUSED — rolling WR recovered to {rolling_wr:.0%}" if rolling_wr else f"[{strat}] UNPAUSED — insufficient data"
+                        logger.info(f"📚 {msg}")
+                        self.lesson_log.append(msg)
 
                     # If strategy win rate below 65%, raise its confidence floor aggressively
                     if wr < 0.65:
@@ -198,6 +225,10 @@ class LearningEngine:
 
         self._save_state()
         return lessons
+
+    def is_strategy_paused(self, strategy: str) -> bool:
+        """Returns True if the learning engine has suspended this strategy due to WR collapse."""
+        return strategy in self.paused_strategies
 
     def get_confidence_floor(self, strategy: str) -> float:
         """Returns the learned confidence floor for a strategy."""
