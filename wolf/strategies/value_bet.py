@@ -204,6 +204,13 @@ class ValueBetStrategy:
                     continue  # Already have a signal on this underlying event
                 _event_families.add(event_key)
                 
+                _vb_slug = market.get("slug", "")
+                if _vb_slug and mid:
+                    try:
+                        from market_resolver import register_slug
+                        register_slug(mid, _vb_slug)
+                    except Exception:
+                        pass
                 signals.append({
                     "strategy":    "value_bet",
                     "venue":       "polymarket",
@@ -217,6 +224,7 @@ class ValueBetStrategy:
                     "market_end": market.get("_market_end_ts", 0),
                     "timestamp":   now,
                     "days_to_expiry": market.get("_days_to_expiry", 999),
+                    "slug":        _vb_slug,
                     "reason":      f"ValueBet: {reason} | {q[:40]}",
                 })
                 logger.debug(f"📈 ValueBet: {reason} | {q[:40]}")

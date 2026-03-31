@@ -78,6 +78,11 @@ def _send(text: str, parse_mode: str = "HTML") -> bool:
         return False
 
 # ── Generic alert ─────────────────────────────────────────────────────────────
+def _send_raw(text: str) -> bool:
+    """Direct HTML send for guardian / internal use."""
+    return _send(text)
+
+
 def send_alert(message: str, level: str = "INFO") -> bool:
     if config.PAPER_MODE and level.upper() != "CRITICAL":
         logger.info(f"[PAPER MODE - suppressed] [{level}] {message}")

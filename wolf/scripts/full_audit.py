@@ -294,6 +294,50 @@ try:
 except Exception as e:
     fail(f"preflight import failed: {e}")
 
+
+# ── 16. WOLF GUARDIAN ───────────────────────────────────────────────────────
+print("\n[16] WOLF GUARDIAN")
+try:
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".."))
+    from scripts.wolf_guardian import scan_log, get_status, PATTERNS
+    ok(f"Guardian importable — {len(PATTERNS)} error patterns registered")
+    ok("guardian.get_status() callable") if callable(get_status) else fail("get_status not callable")
+    ok("guardian.scan_log() callable") if callable(scan_log) else fail("scan_log not callable")
+    # Check if guardian was started (look for thread)
+    import threading
+    guardian_running = any(t.name == "wolf-guardian" for t in threading.enumerate())
+    ok("Guardian thread running") if guardian_running else warn("Guardian thread not running (normal if audit run standalone)")
+except Exception as e:
+    fail(f"Guardian import failed: {e}")
+
+# ── 17. DASHBOARD BALANCE PUSH ──────────────────────────────────────────────
+print("\n[17] DASHBOARD BALANCE PUSH")
+try:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "feeds", "dashboard_push.py")) as _f:
+        _dp = _f.read()
+    ok("balance field in performance push") if '"balance"' in _dp else fail("balance field MISSING from dashboard_push performance")
+    ok("paperMode field in performance push") if '"paperMode"' in _dp else fail("paperMode field MISSING from dashboard push")
+    ok("void=0 filter in all stat queries") if _dp.count("void=0") >= 5 else warn(f"void=0 filter count low: {_dp.count('void=0')} (expected 5+)")
+except Exception as e:
+    fail(f"dashboard_push check failed: {e}")
+
+# ── 18. VOID TRADES INTEGRITY ────────────────────────────────────────────────
+print("\n[18] VOID TRADES INTEGRITY")
+conn = sqlite3.connect(config.DB_PATH)
+c = conn.cursor()
+try:
+    c.execute("SELECT void FROM paper_trades LIMIT 1")
+    ok("void column exists in paper_trades")
+except:
+    fail("void column MISSING from paper_trades")
+void_count = c.execute("SELECT COUNT(*) FROM paper_trades WHERE void=1 AND pnl != 0").fetchone()[0]
+ok("No void trades with non-zero P&L") if void_count == 0 else fail(f"{void_count} void trades have non-zero P&L (data corruption)")
+slug_count = c.execute("SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND slug IS NOT NULL AND slug != ''").fetchone()[0]
+total_open = c.execute("SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0").fetchone()[0]
+ok(f"Slug tracking: {slug_count}/{total_open} open positions have slugs") if slug_count > 0 or total_open == 0 else warn("No open positions have slugs — price lookup may fail")
+conn.close()
+
 # ── SUMMARY ──────────────────────────────────────────────────────────────────
 total = len(P) + len(W) + len(F)
 print(f"\n{'═'*58}")

@@ -221,6 +221,13 @@ class MarketMaker:
             slot.active_no  = True
             active_count   += 1
 
+            _mm_slug = market.get("slug", "")
+            if _mm_slug and market_id:
+                try:
+                    from market_resolver import register_slug
+                    register_slug(market_id, _mm_slug)
+                except Exception:
+                    pass
             signals.append({
                 "strategy":    "market_making",
                 "venue":       "polymarket",
@@ -233,6 +240,7 @@ class MarketMaker:
                 "confidence":  confidence,
                 "volume":      volume,
                 "vpin":        vpin,
+                "slug":        _mm_slug,
                 "timestamp":   now,
                 "reason":      (
                     f"MM {market_id[:16]}… spread={natural_spread:.3f} "
@@ -251,6 +259,7 @@ class MarketMaker:
                 "confidence":  confidence,
                 "volume":      volume,
                 "vpin":        vpin,
+                "slug":        _mm_slug,
                 "timestamp":   now,
                 "reason":      f"MM both sides — paired hedge",
             })

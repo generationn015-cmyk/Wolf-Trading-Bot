@@ -273,6 +273,16 @@ async def main():
     except Exception as e:
         logger.warning(f"Dashboard failed: {e}")
 
+    # ── Wolf Guardian (self-healing error scanner) ───────────────────────────
+    try:
+        import os as _os
+        _log_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "wolf.log")
+        from scripts.wolf_guardian import start as _guardian_start
+        _guardian_start(_log_path, config)
+        logger.info("🛡️ Wolf Guardian started — scanning for errors every 5 min")
+    except Exception as _ge:
+        logger.warning(f"Guardian failed to start (non-fatal): {_ge}")
+
     send_alert(
         f"🐺 Wolf online — {mode}\n"
         f"8 strategies active:\n"
