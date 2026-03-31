@@ -26,8 +26,10 @@ class OrderManager:
         self._poly_client  = None
         self._kalshi_client = None
         # Dedup cache: (strategy, market_id, side) → last execution timestamp
+        # Pre-seed from DB so restarts don't re-enter existing open positions
         self._exec_cache: dict[tuple, float] = {}
         self._gate_alerted = False
+        self._seed_dedup_from_db(trade_logger)
 
     def _is_duplicate(self, strategy: str, market_id: str, side: str) -> bool:
         key = (strategy, market_id, side)
@@ -43,6 +45,25 @@ class OrderManager:
         stale = [k for k, v in self._exec_cache.items() if now - v > EXEC_DEDUP_WINDOW * 2]
         for k in stale:
             del self._exec_cache[k]
+
+
+    def _seed_dedup_from_db(self, journal: TradeLogger):
+        """On startup, mark all currently-open positions as recently executed.
+        Prevents re-entry burst when Wolf restarts with open positions."""
+        try:
+            import sqlite3
+            with sqlite3.connect(journal.db_path) as conn:
+                rows = conn.execute(
+                    "SELECT strategy, market_id, side FROM paper_trades "
+                    "WHERE resolved=0 AND simulated=0"
+                ).fetchall()
+            now = time.time()
+            for strategy, market_id, side in rows:
+                self._exec_cache[(strategy, market_id, side)] = now
+            if rows:
+                logger.info(f"Dedup cache seeded: {len(rows)} open positions protected from re-entry")
+        except Exception as e:
+            logger.debug(f"Dedup seed skipped: {e}")
 
     def execute_signal(self, signal: dict) -> dict:
         """Route a trading signal to paper or live execution with full dedup + risk gating."""

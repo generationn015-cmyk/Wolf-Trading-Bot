@@ -62,7 +62,27 @@ def _resolve_paper_trades(paper, journal, market_maker=None):
                 from market_resolver import get_current_price
                 prices = get_current_price(trade.market_id)
                 if prices is None:
-                    logger.warning(f"[FORCE-EXIT] Price lookup failed for {trade.market_id[:20]} — skipping this cycle")
+                    # Track consecutive failures — if stuck, close at entry (pnl=0)
+                    _fail_key = f"_fail_{trade.market_id[:20]}"
+                    _fails = getattr(_resolve_paper_trades, _fail_key, 0) + 1
+                    setattr(_resolve_paper_trades, _fail_key, _fails)
+                    if _fails >= 3:
+                        logger.warning(f"[FORCE-EXIT] Price lookup failed {_fails}x for {trade.market_id[:20]} — closing at entry (pnl=$0)")
+                        setattr(_resolve_paper_trades, _fail_key, 0)
+                        result = paper.resolve_trade(trade.market_id, "NO" if trade.side == "YES" else "YES")
+                        if result:
+                            result.pnl = 0.0
+                            result.exit_price = trade.entry_price
+                            try:
+                                journal.update_paper_trade_resolved(
+                                    market_id=trade.market_id, strategy=trade.strategy,
+                                    side=trade.side, won=False,
+                                    exit_price=trade.entry_price, pnl=0.0,
+                                )
+                            except Exception as _e:
+                                logger.warning(f"Force-exit(no-price) DB update FAILED: {_e}")
+                    else:
+                        logger.warning(f"[FORCE-EXIT] Price lookup failed ({_fails}/3) for {trade.market_id[:20]} — retrying")
                     continue
                 current_px = prices[0] if trade.side == "YES" else prices[1]
                 if current_px and current_px > 0:
