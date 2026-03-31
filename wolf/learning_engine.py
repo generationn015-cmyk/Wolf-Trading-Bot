@@ -125,7 +125,8 @@ class LearningEngine:
                         self.lesson_log.append(msg)
 
                     # If strategy win rate below 65%, raise its confidence floor aggressively
-                    if wr < 0.65:
+                    # Guard: need ≥10 trades before raising floor (prevents false positives from tiny samples)
+                    if wr < 0.65 and total >= 10:
                         old = self.min_confidence_overrides.get(strat, config.MIN_CONFIDENCE)
                         # Larger step-up the further below target we are
                         step = 0.08 if wr < 0.40 else 0.05

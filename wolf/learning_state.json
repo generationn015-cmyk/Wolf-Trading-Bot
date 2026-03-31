@@ -1,6 +1,5 @@
 {
   "floors": {
-    "copy_trading": 0.92,
     "value_bet": 0.92
   },
   "wallet_penalty": {},
@@ -8,5 +7,5 @@
   "paused": [
     "value_bet"
   ],
-  "saved_at": 1774984610.954999
+  "saved_at": 1774985546.1854198
 }
