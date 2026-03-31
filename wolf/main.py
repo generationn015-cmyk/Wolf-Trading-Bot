@@ -195,6 +195,7 @@ async def main():
     from strategies.near_expiry import NearExpiryStrategy
     from strategies.ta_signal import TASignalStrategy
     from strategies.value_bet import ValueBetStrategy
+    from strategies.btc_scalper import BTCScalperStrategy
     from strategies.cross_platform_arb import CrossPlatformArb
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
@@ -236,6 +237,7 @@ async def main():
     near_expiry       = NearExpiryStrategy()
     ta_signal         = TASignalStrategy()
     value_bet         = ValueBetStrategy()
+    btc_scalper       = BTCScalperStrategy()
     cross_platform    = CrossPlatformArb()
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
@@ -285,15 +287,16 @@ async def main():
 
     send_alert(
         f"🐺 Wolf online — {mode}\n"
-        f"8 strategies active:\n"
-        f"  1. Latency Arb (9–16s, 0.11% BTC)\n"
-        f"  2. Copy Trading (Polymarket top wallets)\n"
-        f"  3. Complement Arb (YES+NO < $0.95)\n"
-        f"  4. Timezone Arb (global RSS, 2–9AM ET)\n"
+        f"9 strategies active:\n"
+        f"  1. Value Bet (underdog + mid-range)\n"
+        f"  2. BTC Scalper (LateStage/Breakout/FlashCrash)\n"
+        f"  3. Copy Trading (top 20 Polymarket wallets)\n"
+        f"  4. Market Making\n"
         f"  5. Near Expiry (<2h, $0.94–$0.99)\n"
-        f"  6. Cross-Platform Arb (Poly ↔ Kalshi)\n"
-        f"  7. Kalshi Copy Trading\n"
-        f"  8. Market Making\n"
+        f"  6. Latency Arb (9–16s, 0.11% BTC)\n"
+        f"  7. Complement Arb (YES+NO < $0.95)\n"
+        f"  8. Timezone Arb (global RSS, 2–9AM ET)\n"
+        f"  9. Cross-Platform Arb (Poly ↔ Kalshi, disabled until Kalshi live)\n"
         f"Paper until Jefe authorizes live.",
         "INFO", system=True
     )
@@ -401,6 +404,20 @@ async def main():
                         )
             except Exception as e:
                 logger.warning(f"Value bet error: {e}")
+
+            # Priority 4d: BTC Scalper (LateStageArb + BreakoutScalper + FlashCrash)
+            try:
+                for sig in await btc_scalper.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        sub = sig.get("sub_strategy", "btc_scalper")
+                        logger.info(
+                            f"[{res['status']}] BTCScalper[{sub}]: "
+                            f"{sig['side']}@{sig['entry_price']:.3f} "
+                            f"conf={sig['confidence']:.2f} {sig.get('reason','')[:60]}"
+                        )
+            except Exception as e:
+                logger.warning(f"BTC scalper error: {e}")
 
             # Priority 5: Near-Expiry (high-confidence, near-certain outcomes)
             # NOTE: near_expiry scans Polymarket only until KALSHI_ENABLED=true

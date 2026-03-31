@@ -79,14 +79,16 @@ class LearningEngine:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 # ── 1. Overall win rate by strategy ──────────────────────────
+                # Track both strategy-level AND sub_strategy-level (btc_scalper sub-modes)
                 rows = conn.execute("""
-                    SELECT strategy,
-                           COUNT(*) as total,
-                           SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
-                           AVG(pnl) as avg_pnl,
-                           AVG(entry_price) as avg_entry
+                    SELECT
+                        COALESCE(sub_strategy, strategy) as track_key,
+                        COUNT(*) as total,
+                        SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
+                        AVG(pnl) as avg_pnl,
+                        AVG(entry_price) as avg_entry
                     FROM paper_trades WHERE resolved=1 AND simulated=0
-                    GROUP BY strategy
+                    GROUP BY COALESCE(sub_strategy, strategy)
                 """).fetchall()
 
                 for row in rows:

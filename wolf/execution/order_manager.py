@@ -145,6 +145,9 @@ class OrderManager:
             "reason":         signal.get("reason", ""),
             "market_end":     market_end,
             "days_to_expiry": days_to_expiry,
+            "sub_strategy":   signal.get("sub_strategy"),
+            "tp_price":       signal.get("tp_price"),
+            "sl_price":       signal.get("sl_price"),
         })
         if not inserted:
             if trade in self.paper.open_trades:

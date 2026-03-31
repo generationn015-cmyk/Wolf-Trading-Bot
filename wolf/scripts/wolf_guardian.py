@@ -161,15 +161,16 @@ def check_db_integrity(config) -> list[dict]:
         conn = sqlite3.connect(db_path, timeout=5)
         c = conn.cursor()
 
-        # ── 1. Strategy with 0% WR on 5+ real trades ─────────────────────────
+        # ── 1. Strategy/sub_strategy with 0% WR on 5+ real trades ───────────
         rows = c.execute("""
-            SELECT strategy, COUNT(*) as t, SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as w
+            SELECT COALESCE(sub_strategy, strategy) as track_key,
+                   COUNT(*) as t, SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as w
             FROM paper_trades WHERE resolved=1 AND simulated=0
-            GROUP BY strategy HAVING t >= 5
+            GROUP BY track_key HAVING t >= 5
         """).fetchall()
         for strat, t, w in rows:
             wr = (w or 0) / t
-            if wr < 0.15:  # effectively 0% WR
+            if wr < 0.15:
                 key = f"zero_wr_{strat}"
                 if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
                     _db_check_cooldown[key] = now
@@ -184,6 +185,36 @@ def check_db_integrity(config) -> list[dict]:
                         "fixed": False,
                         "fix_result": "",
                     })
+
+        # ── 1b. Rolling last-10-trade WR drop ────────────────────────────────
+        strat_keys = c.execute("""
+            SELECT DISTINCT COALESCE(sub_strategy, strategy)
+            FROM paper_trades WHERE resolved=1 AND simulated=0
+        """).fetchall()
+        for (track_key,) in strat_keys:
+            last10 = c.execute("""
+                SELECT won FROM paper_trades
+                WHERE resolved=1 AND simulated=0
+                AND COALESCE(sub_strategy, strategy)=?
+                ORDER BY timestamp DESC LIMIT 10
+            """, (track_key,)).fetchall()
+            if len(last10) >= 10:
+                recent_wr = sum(r[0] for r in last10) / 10
+                if recent_wr < 0.40:
+                    key = f"rolling_wr_drop_{track_key}"
+                    if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
+                        _db_check_cooldown[key] = now
+                        issues.append({
+                            "name": f"rolling_wr_drop_{track_key}",
+                            "severity": "HIGH",
+                            "description": f"{track_key} last-10-trade WR={recent_wr:.0%} — below 40% rolling threshold",
+                            "count": 10,
+                            "sample": f"{track_key}: {sum(r[0] for r in last10)}/10 wins rolling",
+                            "auto_fix": False,
+                            "fix_fn": "",
+                            "fixed": False,
+                            "fix_result": "",
+                        })
 
         # ── 2. High void rate — force exits poisoning stats ───────────────────
         void_row = c.execute("""
@@ -233,6 +264,48 @@ def check_db_integrity(config) -> list[dict]:
                         "fixed": False,
                         "fix_result": "",
                     })
+
+        # ── 3b. Stale open positions (>18h) ──────────────────────────────────
+        stale = c.execute("""
+            SELECT strategy, market_id, timestamp FROM paper_trades
+            WHERE resolved=0 AND simulated=0 AND timestamp < ?
+        """, (now - 18*3600,)).fetchall()
+        if stale:
+            key = "open_positions_stale"
+            if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
+                _db_check_cooldown[key] = now
+                issues.append({
+                    "name": "open_positions_stale",
+                    "severity": "HIGH",
+                    "description": f"{len(stale)} open position(s) held >18h — force-exit may be imminent",
+                    "count": len(stale),
+                    "sample": f"{stale[0][0]} {stale[0][1][:20]}",
+                    "auto_fix": False,
+                    "fix_fn": "",
+                    "fixed": False,
+                    "fix_result": "",
+                })
+
+        # ── 3c. No new resolved trades in 24h ────────────────────────────────
+        last_resolved = c.execute("""
+            SELECT MAX(timestamp) FROM paper_trades WHERE resolved=1 AND simulated=0
+        """).fetchone()[0] or 0
+        if last_resolved > 0 and (now - last_resolved) > 86400:
+            key = "no_new_trades_24h"
+            if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
+                _db_check_cooldown[key] = now
+                hours = (now - last_resolved) / 3600
+                issues.append({
+                    "name": "no_new_trades_24h",
+                    "severity": "MEDIUM",
+                    "description": f"No new resolved trades in {hours:.0f}h — Wolf may not be finding markets",
+                    "count": 1,
+                    "sample": f"Last resolved: {datetime.fromtimestamp(last_resolved).strftime('%Y-%m-%d %H:%M')}",
+                    "auto_fix": False,
+                    "fix_fn": "",
+                    "fixed": False,
+                    "fix_result": "",
+                })
 
         # ── 4. Balance sanity check — detect runaway PnL ─────────────────────
         pnl_row = c.execute(

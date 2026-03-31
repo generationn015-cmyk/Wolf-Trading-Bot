@@ -62,11 +62,14 @@ def fetch_stats():
     total = total or 0; wins = wins or 0; pnl = pnl or 0.0
     wr = round(wins / total * 100, 1) if total else 0
 
-    # By strategy
-    c.execute('''SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END),
-                 ROUND(SUM(pnl),2), ROUND(AVG(confidence),3)
+    # By strategy + sub_strategy (btc_scalper sub-modes shown individually)
+    c.execute('''SELECT
+                   CASE WHEN sub_strategy IS NOT NULL THEN strategy || '/' || sub_strategy
+                        ELSE strategy END as display_name,
+                   COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END),
+                   ROUND(SUM(pnl),2), ROUND(AVG(confidence),3)
                  FROM paper_trades WHERE resolved=1 AND simulated=0
-                 GROUP BY strategy ORDER BY SUM(pnl) DESC''')
+                 GROUP BY display_name ORDER BY SUM(pnl) DESC''')
     strats = []
     for row in c.fetchall():
         name, t, w, p, cf = row
@@ -78,13 +81,13 @@ def fetch_stats():
         })
 
     # Open positions
-    c.execute('''SELECT strategy, side, entry_price, size, timestamp, market_id, reason
+    c.execute('''SELECT strategy, side, entry_price, size, timestamp, market_id, reason,
+                        COALESCE(sub_strategy,''), COALESCE(tp_price,0), COALESCE(sl_price,0)
                  FROM paper_trades WHERE resolved=0 AND simulated=0 ORDER BY timestamp DESC''')
     opens = []
     import re as _re
     for row in c.fetchall():
-        strat, side, ep, sz, ts, mid, reason = row
-        # Extract human-readable name from reason
+        strat, side, ep, sz, ts, mid, reason, sub_strat, tp, sl = row
         market_name = ""
         if reason:
             pipe = reason.find(" | ")
@@ -95,10 +98,12 @@ def fetch_stats():
                 market_name = f"Whale: {w.group()[:10]}…" if w else "Whale copy"
             else:
                 market_name = reason[:50]
+        display_strat = f"{strat}/{sub_strat}" if sub_strat else strat
         opens.append({
-            "strategy": strat, "side": side, "entry_price": ep,
+            "strategy": display_strat, "side": side, "entry_price": ep,
             "size": sz, "age_min": round((time.time() - (ts or 0)) / 60, 1),
             "market_id": market_name or (mid or "")[:28],
+            "tp_price": tp or None, "sl_price": sl or None,
         })
 
     # P&L curve (hourly buckets)
@@ -107,7 +112,7 @@ def fetch_stats():
                  FROM paper_trades WHERE resolved=1 AND simulated=0
                  GROUP BY bucket ORDER BY bucket''')
     curve_raw = c.fetchall()
-    running = 1000.0
+    running = config.PAPER_STARTING_CAPITAL
     curve = []
     for bucket, p2, cnt in curve_raw:
         running += (p2 or 0)
