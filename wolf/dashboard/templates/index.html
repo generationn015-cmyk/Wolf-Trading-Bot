@@ -128,6 +128,12 @@
     </table>
   </div>
 
+  <!-- Learning Engine -->
+  <div class="section">
+    <div class="section-title">🧠 Learning Engine — Adaptive Adjustments</div>
+    <div id="learning-panel" style="font-size:0.82em;color:#b0bcc8;">Loading…</div>
+  </div>
+
 </div>
 
 <!-- POSITIONS TAB -->
@@ -295,6 +301,32 @@ async function refresh() {
           <td>${t.won ? '<span class="win">WIN</span>' : '<span class="loss">LOSS</span>'}</td>
         </tr>`).join('')
       : '<tr><td colspan="7" style="color:#2a3540">No resolved trades yet</td></tr>';
+
+    // Learning Engine panel
+    const learn = d.learning || {};
+    const floors = learn.floors || {};
+    const badRanges = learn.bad_ranges || [];
+    let learnHtml = '';
+    const floorKeys = Object.keys(floors);
+    if (floorKeys.length) {
+      learnHtml += '<div style="margin-bottom:8px"><span style="color:#405060;font-size:0.85em;text-transform:uppercase;letter-spacing:0.06em">Confidence Floors</span><br>';
+      floorKeys.forEach(k => {
+        const v = floors[k];
+        const color = v > 0.80 ? '#ff5555' : v > 0.72 ? '#f0a040' : '#34c76a';
+        learnHtml += `<span style="display:inline-block;margin:3px 8px 3px 0;padding:3px 10px;background:#0a1220;border-radius:4px;border:1px solid #1a2535">${k}: <span style="color:${color};font-weight:700">${(v*100).toFixed(0)}%</span></span>`;
+      });
+      learnHtml += '</div>';
+    } else {
+      learnHtml += '<div style="color:#2a3540;margin-bottom:8px">No confidence adjustments yet (need 5+ real trades per strategy)</div>';
+    }
+    if (badRanges.length) {
+      learnHtml += '<div><span style="color:#405060;font-size:0.85em;text-transform:uppercase;letter-spacing:0.06em">Blocked Price Ranges</span><br>';
+      badRanges.forEach(r => {
+        learnHtml += `<span style="display:inline-block;margin:3px 8px 3px 0;padding:3px 10px;background:#1a0a0a;border-radius:4px;border:1px solid #3a1515;color:#ff5555">${r[0].toFixed(2)}–${r[1].toFixed(2)}</span>`;
+      });
+      learnHtml += '</div>';
+    }
+    document.getElementById('learning-panel').innerHTML = learnHtml || '<span style="color:#2a3540">No patterns learned yet</span>';
 
     document.getElementById('footer').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
   } catch(e) {

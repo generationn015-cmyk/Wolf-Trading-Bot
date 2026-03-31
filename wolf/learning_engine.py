@@ -22,7 +22,7 @@ class LearningEngine:
     def __init__(self):
         self.db_path = config.DB_PATH
         self.last_analysis = 0.0
-        self.analysis_interval = 300  # Every 5 min
+        self.analysis_interval = 120  # Every 2 min — faster feedback loop
 
         # Learned adjustments — strategies read these at scan time
         self.min_confidence_overrides: dict[str, float] = {}  # per-strategy floor
@@ -91,28 +91,30 @@ class LearningEngine:
 
                 for row in rows:
                     strat, total, wins, avg_pnl, avg_entry = row
-                    if total < 10:  # Need at least 10 trades for meaningful stats
+                    if total < 5:  # Lowered from 10 — act faster on early data
                         continue
                     wr = wins / total
 
-                    # If strategy win rate below 70%, raise its confidence floor
-                    if wr < 0.70:
+                    # If strategy win rate below 65%, raise its confidence floor aggressively
+                    if wr < 0.65:
                         old = self.min_confidence_overrides.get(strat, config.MIN_CONFIDENCE)
-                        new_floor = min(0.85, old + 0.05)
+                        # Larger step-up the further below target we are
+                        step = 0.08 if wr < 0.40 else 0.05
+                        new_floor = min(0.92, old + step)
                         self.min_confidence_overrides[strat] = new_floor
-                        msg = f"[{strat}] WR={wr:.1%} < 70% — raising confidence floor to {new_floor:.2f}"
+                        msg = f"[{strat}] WR={wr:.1%} < 65% — raising confidence floor {old:.2f}→{new_floor:.2f}"
                         _lh = hash(msg)
                         if self._last_lesson_hash.get(strat) != _lh:
                             self._last_lesson_hash[strat] = _lh
                             logger.info(f"📚 Lesson: {msg}")
                         self.lesson_log.append(msg)
                         lessons[strat] = {"action": "raised_confidence_floor", "new_floor": new_floor, "wr": wr}
-                    elif wr >= 0.85:
-                        # Performing well — can slightly relax floor to capture more opportunities
+                    elif wr >= 0.80:
+                        # Performing well — relax floor to capture more opportunities
                         old = self.min_confidence_overrides.get(strat, config.MIN_CONFIDENCE)
                         new_floor = max(config.MIN_CONFIDENCE, old - 0.02)
                         self.min_confidence_overrides[strat] = new_floor
-                        msg = f"[{strat}] WR={wr:.1%} ≥ 85% — relaxing confidence floor to {new_floor:.2f}"
+                        msg = f"[{strat}] WR={wr:.1%} ≥ 80% — relaxing confidence floor to {new_floor:.2f}"
                         _lh = hash(msg)
                         if self._last_lesson_hash.get(strat) != _lh:
                             self._last_lesson_hash[strat] = _lh
@@ -125,7 +127,7 @@ class LearningEngine:
                            SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins
                     FROM paper_trades WHERE resolved=1 AND simulated=0
                     GROUP BY ROUND(entry_price, 1)
-                    HAVING cnt >= 15  -- need meaningful sample before blocking any price range
+                    HAVING cnt >= 8  -- lowered from 15 — act faster on bad price ranges
                 """).fetchall()
 
                 self.bad_price_ranges = []

@@ -1,34 +1,45 @@
 #!/usr/bin/env python3
-"""Wolf 6AM Morning Report — sends interactive Telegram update to Jefe."""
+"""Wolf 6AM Morning Report — sends interactive Telegram update to Jefe.
+NOTE: All queries filter simulated=0 to show only REAL paper trade data.
+"""
 import sys, sqlite3, time, os, requests, json
 sys.path.insert(0, '/data/.openclaw/workspace/wolf')
+import config as _cfg
 
-conn = sqlite3.connect('/data/.openclaw/workspace/wolf/wolf_data.db')
+conn = sqlite3.connect(_cfg.DB_PATH)
 c = conn.cursor()
 
-c.execute('SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1')
+REAL = "resolved=1 AND simulated=0"
+
+c.execute(f'SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE {REAL}')
 total, wins, pnl = c.fetchone()
 total = total or 0; wins = wins or 0; pnl = pnl or 0.0
 wr = wins/total if total else 0
-balance = 1000 + pnl
+_starting = getattr(_cfg, 'PAPER_STARTING_CAPITAL', 10000.0)
+balance = _starting + pnl
 
-c.execute('SELECT COUNT(*) FROM paper_trades WHERE resolved=0')
+c.execute(f"SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0")
 open_t = c.fetchone()[0]
 
-c.execute('SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1 GROUP BY strategy ORDER BY SUM(pnl) DESC')
+c.execute(f'SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE {REAL} GROUP BY strategy ORDER BY SUM(pnl) DESC')
 strats = c.fetchall()
 
-c.execute('SELECT MAX(timestamp) FROM paper_trades WHERE resolved=1')
+c.execute(f'SELECT MAX(timestamp) FROM paper_trades WHERE {REAL}')
 last_ts = c.fetchone()[0] or 0
 last_trade = time.strftime('%I:%M %p ET', time.localtime(last_ts)) if last_ts else 'N/A'
 
-c.execute('SELECT pnl FROM paper_trades WHERE resolved=1 ORDER BY pnl DESC LIMIT 1')
+c.execute(f'SELECT pnl FROM paper_trades WHERE {REAL} ORDER BY pnl DESC LIMIT 1')
 best = (c.fetchone() or [0])[0] or 0
-c.execute('SELECT pnl FROM paper_trades WHERE resolved=1 ORDER BY pnl ASC LIMIT 1')
+c.execute(f'SELECT pnl FROM paper_trades WHERE {REAL} ORDER BY pnl ASC LIMIT 1')
 worst = (c.fetchone() or [0])[0] or 0
 
-c.execute('SELECT strategy, side, pnl, won FROM paper_trades WHERE resolved=1 ORDER BY timestamp DESC LIMIT 5')
+c.execute(f'SELECT strategy, side, pnl, won FROM paper_trades WHERE {REAL} ORDER BY timestamp DESC LIMIT 5')
 recent = c.fetchall()
+
+# Void/force-exit breakdown
+c.execute(f"SELECT COUNT(*) FROM paper_trades WHERE {REAL} AND void=1")
+void_count = (c.fetchone() or [0])[0] or 0
+
 conn.close()
 
 wr_emoji  = "🟢" if wr >= 0.80 else ("🟡" if wr >= 0.72 else "🔴")
@@ -47,14 +58,15 @@ for r in recent:
     icon = "✅" if won else "❌"
     recent_lines.append(f"  {icon} {(strat or '')[:14]:14} {side}  ${p:+.2f}")
 
-report = f"""🐺 Wolf — 6AM Status Report
+report = f"""🐺 Wolf — Morning Report
 {'─'*30}
-{wr_emoji} Win Rate:   {wr:.1%}  ({wins}W / {total-wins}L / {total} trades)
+{wr_emoji} Win Rate:   {wr:.1%}  ({wins}W / {total-wins}L / {total} real trades)
 💰 P&L:       ${pnl:+,.2f}
-📊 Balance:   ${balance:,.2f}  (started $1,000)
+📊 Balance:   ${balance:,.2f}  (started ${_starting:,.0f})
 📈 Best:      ${best:+.2f}  |  Worst: ${worst:+.2f}
 🕐 Last trade: {last_trade}
 📂 Open now:  {open_t} positions
+⚠️  Void exits: {void_count} trades
 
 Strategy Breakdown:
 {chr(10).join(strat_lines) if strat_lines else '  No resolved trades yet'}

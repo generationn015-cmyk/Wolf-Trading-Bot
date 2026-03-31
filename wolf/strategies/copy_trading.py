@@ -214,12 +214,17 @@ class CopyTrader:
                         continue
                     volume = max(size * 100, config.MIN_MARKET_VOLUME)  # Synthetic volume proxy meets risk gate
 
-                # Duration filter — prefer fast-resolving markets in paper mode
+                # Duration filter — paper mode only enters fast-resolving markets
+                # Cap at 3 days so trades don't sit open and void-exit at 12h
                 import config as _cfg2
                 if _cfg2.PAPER_MODE:
                     market_end = get_market_end_date(market_id)
-                    if market_end is not None and market_end > 14:
-                        logger.debug(f"Skipping {market_id[:12]}... resolves in {market_end}d (paper mode cap 14d)")
+                    if market_end is not None and market_end > 3:
+                        logger.debug(f"Skipping {market_id[:12]}... resolves in {market_end}d (paper mode cap 3d)")
+                        continue
+                    if market_end is None:
+                        # Unknown duration — skip in paper mode to avoid void exits
+                        logger.debug(f"Skipping {market_id[:12]}... unknown duration (paper mode)")
                         continue
 
                 # Apply wallet penalty from learning engine
