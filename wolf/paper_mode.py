@@ -67,7 +67,8 @@ class PaperTrader:
                 # Load open trades — skip any market already resolved (avoid lifecycle dupes)
                 resolved_ids = {(r[0], r[2], r[3]) for r in rows}  # (strategy, market_id, side)
                 open_rows = conn.execute(
-                    "SELECT strategy, venue, market_id, side, size, entry_price, timestamp "
+                    "SELECT strategy, venue, market_id, side, size, entry_price, timestamp, "
+                    "market_end, days_to_expiry "
                     "FROM paper_trades WHERE resolved=0 AND simulated=0"
                 ).fetchall()
                 # Filter out markets that already have a resolved entry
@@ -77,7 +78,8 @@ class PaperTrader:
                     t = PaperTrade(
                         timestamp=row[6], strategy=row[0], venue=row[1],
                         market_id=row[2], side=row[3], size=row[4],
-                        entry_price=row[5],
+                        entry_price=row[5], market_end=row[7] or 0.0,
+                        days_to_expiry=row[8] or 0.0,
                     )
                     self.open_trades.append(t)
 

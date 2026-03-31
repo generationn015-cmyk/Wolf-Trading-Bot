@@ -112,16 +112,18 @@ class OrderManager:
             market_end=market_end, days_to_expiry=days_to_expiry,
         )
         inserted = self.journal.log_paper_trade({
-            "timestamp":   trade.timestamp,
-            "strategy":    strategy,
-            "venue":       venue,
-            "market_id":   market_id,
-            "side":        side,
-            "size":        size,
-            "entry_price": entry_price,
-            "confidence":  signal.get("confidence"),
-            "edge":        signal.get("edge"),
-            "reason":      signal.get("reason", ""),
+            "timestamp":      trade.timestamp,
+            "strategy":       strategy,
+            "venue":          venue,
+            "market_id":      market_id,
+            "side":           side,
+            "size":           size,
+            "entry_price":    entry_price,
+            "confidence":     signal.get("confidence"),
+            "edge":           signal.get("edge"),
+            "reason":         signal.get("reason", ""),
+            "market_end":     market_end,
+            "days_to_expiry": days_to_expiry,
         })
         if not inserted:
             if trade in self.paper.open_trades:
