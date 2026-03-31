@@ -102,6 +102,7 @@
   <div class="tab" onclick="switchTab('positions')">Positions</div>
   <div class="tab" onclick="switchTab('trades')">Recent Trades</div>
   <div class="tab" onclick="switchTab('hunt')">🎯 Hunt</div>
+  <div class="tab" onclick="switchTab('guardian')">🛡️ Guardian</div>
   <div class="tab" onclick="switchTab('logs')">Logs</div>
 </div>
 
@@ -169,6 +170,26 @@
   </div>
 </div>
 
+<!-- GUARDIAN TAB -->
+<div id="tab-guardian" class="tab-panel">
+  <div class="section">
+    <div class="section-title">🛡️ Guardian — Automated Error Monitor</div>
+    <div id="guardian-status-card" style="background:#0a1018;border:1px solid #1a2535;border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <span id="guardian-badge" style="font-size:1.8em;">⏳</span>
+        <div>
+          <div id="guardian-headline" style="font-size:1em;font-weight:700;color:#c0cfe0;">Loading…</div>
+          <div id="guardian-meta" style="font-size:0.75em;color:#405060;margin-top:2px;"></div>
+        </div>
+        <button onclick="refreshGuardian()" style="margin-left:auto;padding:6px 14px;background:#1a2535;border:1px solid #2a3d50;border-radius:6px;color:#5599ff;font-size:0.78em;cursor:pointer;">↻ Refresh</button>
+      </div>
+      <div id="guardian-issues" style="margin-top:8px;"></div>
+    </div>
+    <div class="section-title" style="margin-top:18px;">Recent Guardian Log Entries</div>
+    <pre id="guardian-log-box" style="background:#0a1018;border:1px solid #1a2535;border-radius:6px;padding:14px;font-size:0.72em;color:#556070;max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">Loading…</pre>
+  </div>
+</div>
+
 <!-- LOGS TAB -->
 <div id="tab-logs" class="tab-panel">
   <div class="section">
@@ -185,13 +206,14 @@ let huntLoaded = false;
 
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('active', ['overview','positions','trades','hunt','logs'][i] === name);
+    t.classList.toggle('active', ['overview','positions','trades','hunt','guardian','logs'][i] === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   currentTab = name;
   if (name === 'hunt' && !huntLoaded) loadHunt();
   if (name === 'logs') loadLogs();
+  if (name === 'guardian') refreshGuardian();
 }
 
 function stratBadge(s) {
@@ -362,6 +384,57 @@ async function loadLogs() {
     box.textContent = (d.lines || []).join('\n');
     box.scrollTop = box.scrollHeight;
   } catch(e) {}
+}
+
+async function refreshGuardian() {
+  try {
+    const d = await fetch('/api/guardian').then(r => r.json());
+    const badge = document.getElementById('guardian-badge');
+    const headline = document.getElementById('guardian-headline');
+    const meta = document.getElementById('guardian-meta');
+    const issues = document.getElementById('guardian-issues');
+
+    const scanAge = d.last_scan_age_s || 0;
+    const ageStr = scanAge < 60 ? `${scanAge}s ago` : `${Math.round(scanAge/60)}m ago`;
+
+    if (d.healthy && d.error_count === 0) {
+      badge.textContent = '✅';
+      headline.style.color = '#4ade80';
+      headline.textContent = `CLEAN — No active issues`;
+    } else if (!d.healthy) {
+      badge.textContent = '🚨';
+      headline.style.color = '#f87171';
+      headline.textContent = `${d.error_count} CRITICAL/HIGH issue(s) detected`;
+    } else {
+      badge.textContent = '⚠️';
+      headline.style.color = '#fbbf24';
+      headline.textContent = `${d.error_count} warning(s) — no critical issues`;
+    }
+
+    meta.textContent = `Scan #${d.scan_count} · last scan ${ageStr} · scans every 5 min`;
+
+    if (d.errors && d.errors.length > 0) {
+      const sevColor = {CRITICAL:'#f87171',HIGH:'#f87171',MEDIUM:'#fbbf24',LOW:'#94a3b8'};
+      issues.innerHTML = d.errors.map(e => `
+        <div style="background:#0d1b2a;border-left:3px solid ${sevColor[e.severity]||'#556070'};padding:8px 12px;margin-bottom:6px;border-radius:0 4px 4px 0;">
+          <div style="font-size:0.8em;font-weight:700;color:${sevColor[e.severity]||'#556070'}">[${e.severity}] ${e.name}</div>
+          <div style="font-size:0.75em;color:#8899aa;margin-top:2px;">${e.description}</div>
+          ${e.sample ? `<div style="font-size:0.68em;color:#405060;margin-top:3px;font-family:monospace;">${e.sample}</div>` : ''}
+        </div>`).join('');
+    } else {
+      issues.innerHTML = '<div style="color:#2a5040;font-size:0.8em;padding:8px 0;">No active issues.</div>';
+    }
+
+    // Show Guardian-specific log lines
+    const logResp = await fetch('/api/logs').then(r => r.json());
+    const guardianLines = (logResp.lines || []).filter(l => l.includes('GUARDIAN'));
+    const gBox = document.getElementById('guardian-log-box');
+    gBox.textContent = guardianLines.slice(-50).join('\n') || '(no guardian log entries yet)';
+    gBox.scrollTop = gBox.scrollHeight;
+
+  } catch(e) {
+    document.getElementById('guardian-headline').textContent = 'Error loading Guardian status';
+  }
 }
 
 // ── WebSocket live push (replaces polling) ────────────────────────────────

@@ -253,8 +253,27 @@ def api_logs(request: Request):
     lines = []
     if os.path.exists(log_path):
         with open(log_path) as f:
-            lines = f.readlines()[-100:]
+            lines = f.readlines()[-200:]
     return JSONResponse({"lines": [l.rstrip() for l in lines]})
+
+@app.get("/api/guardian")
+def api_guardian(request: Request):
+    """Return Guardian scan status — last scan results, scan count, healthy flag."""
+    _auth_required(request)
+    try:
+        from scripts.wolf_guardian import get_status, SUPPRESSED_PATTERNS
+        status = get_status()
+        # Filter suppressed from what we show
+        visible_errors = [e for e in status.get("last_errors", []) if e["name"] not in SUPPRESSED_PATTERNS]
+        return JSONResponse({
+            "scan_count": status.get("scan_count", 0),
+            "healthy": len([e for e in visible_errors if e["severity"] in ("CRITICAL","HIGH")]) == 0,
+            "error_count": len(visible_errors),
+            "errors": visible_errors,
+            "last_scan_age_s": round(time.time() - status.get("last_scan_ts", time.time()), 0),
+        })
+    except Exception as e:
+        return JSONResponse({"scan_count": 0, "healthy": True, "error_count": 0, "errors": [], "error": str(e)})
 
 @app.post("/api/control/{action}")
 def api_control(action: str, request: Request):

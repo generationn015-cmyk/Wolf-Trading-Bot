@@ -328,6 +328,24 @@ def push_to_dashboard(force: bool = False) -> bool:
 
         conn.close()
         logger.debug(f"Dashboard full sync: {open_pos} open, {total_t} resolved, WR {win_rate}%")
+
+        # ── Push Guardian status to Vercel dashboard ─────────────────────────
+        try:
+            from scripts.wolf_guardian import get_status as _gs, SUPPRESSED_PATTERNS
+            gstatus = _gs()
+            visible = [e for e in gstatus.get("last_errors", []) if e["name"] not in SUPPRESSED_PATTERNS]
+            _post_webhook("guardian_update", {"data": {
+                "scan_count": gstatus.get("scan_count", 0),
+                "healthy": len([e for e in visible if e["severity"] in ("CRITICAL","HIGH")]) == 0,
+                "error_count": len(visible),
+                "errors": [{"name": e["name"], "severity": e["severity"],
+                            "description": e["description"],
+                            "sample": e.get("sample", "")[:100]} for e in visible],
+                "last_scan_ts": gstatus.get("last_scan_ts", time.time()),
+            }})
+        except Exception as ge:
+            logger.debug(f"Guardian push skipped: {ge}")
+
         return True
 
     except Exception as e:

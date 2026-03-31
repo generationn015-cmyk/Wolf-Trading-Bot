@@ -12,6 +12,10 @@
     "twitter-research": {
       "version": "1.0.0",
       "installedAt": 1774931341089
+    },
+    "polymarket-trade": {
+      "version": "1.0.3",
+      "installedAt": 1774983601671
     }
   }
 }

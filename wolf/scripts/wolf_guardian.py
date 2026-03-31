@@ -118,6 +118,7 @@ _alert_cooldown: dict = {}       # error_name → last alert unix time
 _alert_cooldown_secs: int = 1800 # don't re-alert same error within 30 min
 _scan_count: int = 0
 _errors_found: list = []          # last scan results
+_last_scan_ts: float = 0.0       # epoch of last scan
 
 
 # ── Auto-fix implementations ───────────────────────────────────────────────────
@@ -440,7 +441,7 @@ def _build_alert_text(errors: list[dict], config) -> str:
 # ── Main guardian loop (runs in thread) ───────────────────────────────────────
 
 def guardian_loop(log_path: str, config) -> None:
-    global _scan_count, _errors_found
+    global _scan_count, _errors_found, _last_scan_ts
     logger.info("[GUARDIAN] Started — scanning wolf.log every 5 min")
 
     # Give Wolf 60s to warm up before first scan
@@ -454,6 +455,7 @@ def guardian_loop(log_path: str, config) -> None:
             # Filter out suppressed/expected-disabled patterns before processing
             errors = [e for e in errors + db_issues if e["name"] not in SUPPRESSED_PATTERNS]
             _scan_count += 1
+            _last_scan_ts = time.time()
 
             if not errors:
                 logger.info(f"[GUARDIAN] Scan #{_scan_count}: ✅ clean")
@@ -530,4 +532,5 @@ def get_status() -> dict:
         "last_errors": _errors_found,
         "error_count": len(_errors_found),
         "healthy": len([e for e in _errors_found if e["severity"] in ("CRITICAL","HIGH")]) == 0,
+        "last_scan_ts": _last_scan_ts,
     }
