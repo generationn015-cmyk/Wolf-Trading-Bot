@@ -146,7 +146,7 @@ class TradeLogger:
             conn.execute("""
                 UPDATE paper_trades
                 SET resolved=1, won=?, exit_price=?, pnl=?
-                WHERE market_id=? AND strategy=? AND side=? AND resolved=0
+                WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0
             """, (1 if won else 0, exit_price, pnl, market_id, strategy, side))
             conn.commit()
 

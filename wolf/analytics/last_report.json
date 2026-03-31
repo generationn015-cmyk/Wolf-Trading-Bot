@@ -1,20 +1,54 @@
 {
   "period_hours": 24,
-  "generated_at": 1774922701.2103899,
+  "generated_at": 1774922946.908421,
   "overall": {
-    "total_trades": 0,
-    "wins": 0,
-    "losses": 0,
-    "win_rate": 0,
-    "total_pnl": 0,
-    "avg_pnl_per_trade": 0,
-    "best_trade": 0,
-    "worst_trade": 0,
-    "avg_confidence": 0
+    "total_trades": 3,
+    "wins": 2,
+    "losses": 1,
+    "win_rate": 0.6666666666666666,
+    "total_pnl": 278.35,
+    "avg_pnl_per_trade": 92.78,
+    "best_trade": 273.65,
+    "worst_trade": -3.56,
+    "avg_confidence": 0.764
   },
-  "by_strategy": {},
-  "price_buckets": [],
-  "hourly_performance": [],
+  "by_strategy": {
+    "value_bet": {
+      "total": 3,
+      "wins": 2,
+      "win_rate": 0.667,
+      "pnl": 278.35,
+      "avg_pnl": 92.78,
+      "avg_confidence": 0.764,
+      "avg_price": 0.169,
+      "best": 273.65,
+      "worst": -3.56
+    }
+  },
+  "price_buckets": [
+    {
+      "range": "0.0\u20130.1",
+      "total": 1,
+      "win_rate": 1.0,
+      "pnl": 273.65,
+      "flag": ""
+    },
+    {
+      "range": "0.2\u20130.3",
+      "total": 2,
+      "win_rate": 0.5,
+      "pnl": 4.7,
+      "flag": ""
+    }
+  ],
+  "hourly_performance": [
+    {
+      "hour_et": 9,
+      "total": 3,
+      "win_rate": 0.667,
+      "pnl": 278.35
+    }
+  ],
   "worst_losses": [
     {
       "strategy": "value_bet",
@@ -141,6 +175,13 @@
       "side": "YES",
       "pnl": -80.0,
       "reason": "Copy top trader 0xbacd00c9... PnL $27,759"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.225,
+      "side": "NO",
+      "pnl": -3.56,
+      "reason": "ValueBet: Underdog NO@0.225 (YES=0.775) vol=$341,370 | Will Italy qualify for th"
     }
   ],
   "wallet_performance": [
@@ -158,6 +199,7 @@
     }
   ],
   "lessons": [
-    "\ud83d\udd34 Overall WR 0.0% \u2014 below target. Tighten filters."
+    "\ud83d\udd34 Overall WR 66.7% \u2014 below target. Tighten filters.",
+    "\u23f0 Best hour: 09:00 ET (66.7% WR, $+278)"
   ]
 }
