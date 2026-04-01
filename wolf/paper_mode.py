@@ -33,7 +33,7 @@ class PaperTrade:
 
 
 class PaperTrader:
-    def __init__(self, starting_balance: float = 10000.0):  # default to $10K; always overridden by main.py
+    def __init__(self, starting_balance: float = 100.0):  # default to $10K; always overridden by main.py
         self.balance = starting_balance
         self.starting_balance = starting_balance
         self.trades: list[PaperTrade] = []
@@ -65,16 +65,13 @@ class PaperTrader:
                     if t.pnl is not None:
                         self.balance += t.pnl
 
-                # Load open trades — skip any market already resolved (avoid lifecycle dupes)
-                resolved_ids = {(r[0], r[2], r[3]) for r in rows}  # (strategy, market_id, side)
+                # Load ALL open trades from DB - resolved=0 means it's still open
+                # No filtering by prior resolved entries - each trade has its own lifecycle
                 open_rows = conn.execute(
                     "SELECT strategy, venue, market_id, side, size, entry_price, timestamp, "
                     "market_end, days_to_expiry "
-                    "FROM paper_trades WHERE resolved=0 AND simulated=0"
+                    "FROM paper_trades WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0"
                 ).fetchall()
-                # Filter out markets that already have a resolved entry
-                open_rows = [r for r in open_rows
-                             if (r[0], r[2], r[3]) not in resolved_ids]
                 for row in open_rows:
                     t = PaperTrade(
                         timestamp=row[6], strategy=row[0], venue=row[1],

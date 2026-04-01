@@ -78,6 +78,14 @@ class OrderManager:
         if self._is_duplicate(strategy, market_id, side):
             return {"status": "dedup_blocked", "reason": f"Already executed within {EXEC_DEDUP_WINDOW}s"}
 
+        # ── Market expiry guard — NEVER enter a market that has already ended ──
+        # This is a hard gate: any signal whose market_end timestamp is in the past is voided.
+        # Catches stale conditionIds from copy_trading whale wallets, historic data, etc.
+        _signal_market_end = signal.get("market_end", 0.0) or 0.0
+        if _signal_market_end > 0 and _signal_market_end < time.time():
+            logger.warning(f"[GUARD] Blocked expired market {market_id[:20]} (ended {int(_signal_market_end)})")
+            return {"status": "blocked", "reason": "market_already_expired"}
+
         # ── Per-strategy slot cap ─────────────────────────────────────────────
         # No single strategy should monopolize all open positions
         strat_open = sum(
@@ -88,7 +96,7 @@ class OrderManager:
         # Prevents any one strategy monopolizing all slots, but scales with MAX_OPEN_POSITIONS
         # Use paper-mode cap when in paper mode — live cap is much smaller and would silently block strategies
         _total_slots = config.MAX_OPEN_POSITIONS_PAPER if config.PAPER_MODE else config.MAX_OPEN_POSITIONS
-        max_per = max(4, _total_slots * 3 // 8)  # 37.5% per strategy — prevents monopoly without starving others
+        max_per = max(6, _total_slots * 3 // 4)  # 75% of total slots per strategy — allows active trading across all strategies
         if strat_open >= max_per:
             return {"status": "blocked", "reason": f"Strategy slot cap: {strategy} already has {strat_open}/{max_per} open"}
 

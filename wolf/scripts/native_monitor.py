@@ -54,35 +54,40 @@ def is_wolf_running():
 
 def log_stalled():
     try:
-        age = time.time() - os.path.getmtime(LOG_PATH)
-        return age > STALL_SEC
+        # Check primary wolf.log first, then fallback to /tmp/watchdog.log
+        # (watchdog.log is used when Wolf was launched with nohup redirect)
+        paths_to_check = [LOG_PATH, '/tmp/watchdog.log']
+        for p in paths_to_check:
+            if os.path.exists(p):
+                age = time.time() - os.path.getmtime(p)
+                if age <= STALL_SEC:
+                    return False  # at least one log is fresh
+        return True  # all logs stale
     except:
         return True
 
 def restart_wolf():
-    subprocess.run(['pkill','-f','watchdog.sh'], capture_output=True)
+    # Kill only main.py — watchdog will auto-restart it within 3s
     subprocess.run(['pkill','-f','python3.*main.py'], capture_output=True)
-    time.sleep(3)
-    subprocess.Popen(
-        ['bash', WATCH_SH], cwd=WOLF_DIR,
-        stdout=open('/tmp/watchdog.log','a'),
-        stderr=subprocess.STDOUT,
-    )
-    time.sleep(6)
+    time.sleep(8)
     return is_wolf_running()
+
+STARTING_CAPITAL = 100.0  # paper starting balance
 
 def get_stats():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1')
+        c.execute('SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0')
         total, wins, pnl = c.fetchone()
+        open_pos = conn.execute('SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0').fetchone()[0]
         conn.close()
-        total = total or 0; wins = wins or 0; pnl = pnl or 0.0
+        total = total or 0; wins = wins or 0; pnl = float(pnl or 0.0)
         wr = wins/total if total else 0
-        return total, wr, pnl
+        balance = STARTING_CAPITAL + pnl
+        return total, wr, pnl, balance, open_pos
     except:
-        return 0, 0, 0.0
+        return 0, 0, 0.0, STARTING_CAPITAL, 0
 
 def check_critical_errors():
     """Return new CRITICAL lines since last check."""
@@ -143,21 +148,25 @@ while True:
             actions.append(f'⚡ Memory restart — {"OK" if ok else "FAILED"}')
 
         if issues:
-            total, wr, pnl = get_stats()
-            msg = f"⚠️ {time.strftime('%I:%M %p ET')}\n"
-            for i in issues: msg += f"• {i}\n"
+            total, wr, pnl, balance, open_pos = get_stats()
+            lines = [f"🐺 Wolf Alert — {time.strftime('%I:%M %p ET')}"]
+            lines.append("─────────────────────")
+            for i in issues: lines.append(f"⚠️ {i}")
             if actions:
-                msg += "\nActions:\n"
-                for a in actions: msg += f"  {a}\n"
+                for a in actions: lines.append(f"✅ {a}")
             if crits:
-                msg += "\nCritical errors:\n"
-                for e in crits: msg += f"  {e[-80:]}\n"
-            msg += f"\n📊 {total} trades | {wr:.1%} WR | ${pnl:+.2f}"
-            telegram_alert(msg, creds)
+                lines.append("")
+                lines.append("🚨 Critical:")
+                for e in crits: lines.append(f"  {e[-80:]}")
+            lines.append("")
+            lines.append(f"📊 Trades: {total} | WR: {wr:.1%}")
+            lines.append(f"💰 P&L: ${pnl:+.2f} | Balance: ${balance:,.2f}")
+            lines.append(f"📈 Started: ${STARTING_CAPITAL:,.0f} | Open: {open_pos}")
+            telegram_alert("\n".join(lines), creds)
             print(f'[{time.strftime("%H:%M")}] ALERT: {", ".join(issues)}')
         else:
-            total, wr, pnl = get_stats()
-            print(f'[{time.strftime("%H:%M")}] ✅ Wolf OK | {total}t {wr:.1%}WR ${pnl:+.2f}')
+            total, wr, pnl, balance, open_pos = get_stats()
+            print(f'[{time.strftime("%H:%M")}] ✅ Wolf OK | {total}t {wr:.1%}WR ${pnl:+.2f} Bal:${balance:,.0f} Open:{open_pos}')
 
     except Exception as e:
         print(f'[{time.strftime("%H:%M")}] Monitor error: {e}')

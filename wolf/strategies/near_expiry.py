@@ -33,6 +33,19 @@ from feeds.kalshi_feed import get_active_markets as kalshi_markets
 
 logger = logging.getLogger("wolf.strategy.near_expiry")
 
+# Blueprint Module A: blacklist volatile categories from bond strategy
+BOND_BLACKLIST = [
+    'election', 'political', 'regulatory', 'legal', 'fed_decision',
+    'geopolitical', 'health_emergency', 'crypto_regulatory', 'verdict',
+    'ruling', 'ban', 'regulation', 'vote', 'decision'
+]
+
+def _bond_tail_risk(question: str, category: str = "") -> float:
+    """Simple tail-risk scorer (0=safe, 1=dangerous). Blueprint assess_tail_risk."""
+    text = (question + " " + category).lower()
+    score = sum(0.15 for w in BOND_BLACKLIST if w in text)
+    return min(score, 1.0)
+
 NEAR_CERTAIN_MIN  = 0.94   # minimum price to consider "near certain"
 NEAR_CERTAIN_MAX  = 0.995  # above this, too little upside to bother
 EXPIRY_WINDOW_SEC  = 172800  # 48 hours — outer fetch window; scoring tiers handle prioritization
@@ -144,6 +157,12 @@ class NearExpiryStrategy:
             yes_p = m["_yes_price"]
             no_p  = m["_no_price"]
             secs  = m["_secs_remaining"]
+
+            # Blueprint Module A: skip high tail-risk markets (elections, regulatory, etc.)
+            question = m.get("question", "")
+            category = m.get("category", "")
+            if _bond_tail_risk(question, category) >= 0.25:
+                continue
 
             # Near-certain single side
             for side, price in [("YES", yes_p), ("NO", no_p)]:

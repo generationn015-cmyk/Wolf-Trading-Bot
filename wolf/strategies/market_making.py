@@ -61,8 +61,9 @@ class MarketMaker:
         try:
             resp = requests.get(
                 "https://gamma-api.polymarket.com/markets",
-                params={"active": True, "limit": 50, "closed": False},
-                timeout=10,
+                params={"active": True, "limit": 200, "closed": False,
+                        "liquidity_num_min": 10000},  # Only liquid markets
+                timeout=15,
             )
             if not resp.ok:
                 return self._market_cache
@@ -83,25 +84,33 @@ class MarketMaker:
                 except (ValueError, TypeError):
                     continue
                 # Only trade markets with meaningful liquidity on BOTH sides
-                if not (0.05 < p0 < 0.95 and 0.05 < p1 < 0.95):
+                if not (0.03 < p0 < 0.97 and 0.03 < p1 < 0.97):
                     continue
                 vol = float(m.get("volumeNum", 0) or 0)
                 if vol < config.MIN_MARKET_VOLUME:
                     continue
-                # Duration filter: paper mode — prefer markets resolving within 7 days
+                # Duration filter: Blueprint Module C rules
+                # - Resolving in < 24h → adverse selection risk (don't post quotes)  
+                # - Resolving in > 14 days → low urgency, prefer shorter markets
                 import config as _mmcfg
-                if _mmcfg.PAPER_MODE:
-                    from datetime import datetime, timezone as _tz
-                    _end_raw = m.get("endDate") or m.get("endDateIso") or ""
-                    if _end_raw:
-                        try:
-                            _end_dt = datetime.fromisoformat(_end_raw.replace("Z", "+00:00"))
-                            if not _end_dt.tzinfo: _end_dt = _end_dt.replace(tzinfo=_tz.utc)
-                            _days = (_end_dt - datetime.now(_tz.utc)).total_seconds() / 86400
-                            if _days > 7:
-                                continue
-                        except Exception:
-                            pass
+                from datetime import datetime, timezone as _tz
+                _end_raw = m.get("endDate") or m.get("endDateIso") or ""
+                _days = 5.0  # default
+                if _end_raw:
+                    try:
+                        _end_dt = datetime.fromisoformat(_end_raw.replace("Z", "+00:00"))
+                        if not _end_dt.tzinfo: _end_dt = _end_dt.replace(tzinfo=_tz.utc)
+                        _days = (_end_dt - datetime.now(_tz.utc)).total_seconds() / 86400
+                    except Exception:
+                        pass
+                # Market making window: 1h out to 180 days
+                # Short-term (<1h): skip — too close to resolution, adverse selection risk
+                # Long-term (>180d): skip — too illiquid for spread capture
+                # The real sweet spot: high-volume liquid markets at ANY duration
+                if _days < (1/24):   # Under 1 hour — skip (resolution imminent)
+                    continue
+                if _days > 180:  # Over 180 days — skip (too far, low activity)
+                    continue
 
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1
@@ -115,8 +124,18 @@ class MarketMaker:
                             m["_clob_spread"] = _get_clob_spread_value(ids[0])
                     except Exception:
                         m["_clob_spread"] = 0.0
+                # Reward-rate / volatility scoring (PDF strategy 3):
+                # Prefer stable markets (price away from 50/50) with high volume.
+                # vol_proxy: how far price is from 50/50 (0=perfect arb, 1=extreme)
+                # Higher vol_proxy = more stable = better for market making
+                price_distance = abs(p0 - 0.5) * 2   # 0 at 50/50, 1 at 100/0
+                vol_proxy = 0.02 + (1.0 - price_distance) * 0.10  # simulated 1h vol (higher at 50/50)
+                reward_proxy = vol / 100_000  # proxy for reward rate
+                m["_mm_score"] = reward_proxy / (vol_proxy + 0.001)
                 filtered.append(m)
 
+            # Sort by MM score — prefer stable high-volume markets
+            filtered.sort(key=lambda x: x.get("_mm_score", 0), reverse=True)
             self._market_cache = filtered[:20]
             self._cache_ts = now
             logger.info(f"Market maker loaded {len(self._market_cache)} markets")

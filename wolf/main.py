@@ -197,6 +197,8 @@ async def main():
     from strategies.value_bet import ValueBetStrategy
     from strategies.btc_scalper import BTCScalperStrategy
     from strategies.cross_platform_arb import CrossPlatformArb
+    from strategies.pair_trading import PairTrader
+    from strategies.combinatorial_arb import CombinatorialArb
     from feeds.binance_feed import btc_feed, eth_feed
     from alerts.telegram_alerts import send_alert
     from learning_engine import learning
@@ -233,6 +235,8 @@ async def main():
     market_maker   = MarketMaker()
     timezone_arb      = TimezoneArb()
     complement_arb    = ComplementArb()
+    pair_trader       = PairTrader()
+    combinatorial_arb = CombinatorialArb()
     kalshi_copy       = KalshiCopyTrader()
     near_expiry       = NearExpiryStrategy()
     ta_signal         = TASignalStrategy()
@@ -242,7 +246,25 @@ async def main():
 
     mode = "📄 PAPER" if config.PAPER_MODE else "⚡ LIVE"
     logger.info(f"🐺 Wolf starting in {mode} mode")
-    send_alert(f"Wolf online — {mode} mode\nAll systems starting...", "INFO", system=True)
+    # Build startup stats for notification
+    try:
+        import sqlite3 as _sq
+        _conn = _sq.connect(config.DB_PATH)
+        _total = _conn.execute("SELECT COUNT(*) FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0").fetchone()[0] or 0
+        _wins = _conn.execute("SELECT COUNT(*) FROM paper_trades WHERE resolved=1 AND won=1 AND simulated=0 AND COALESCE(void,0)=0").fetchone()[0] or 0
+        _pnl = float(_conn.execute("SELECT COALESCE(SUM(pnl),0) FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0").fetchone()[0] or 0)
+        _open = _conn.execute("SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0").fetchone()[0] or 0
+        _conn.close()
+        _wr = _wins/_total*100 if _total else 0
+        _bal = config.PAPER_STARTING_CAPITAL + _pnl
+        _startup_msg = (f"🐺 Wolf Online — {mode}\n"
+                        f"─────────────────────\n"
+                        f"📊 Trades: {_total} | WR: {_wr:.1f}%\n"
+                        f"💰 P&L: ${_pnl:+.2f} | Balance: ${_bal:,.2f}\n"
+                        f"📈 Started: $100 | Open: {_open}")
+    except Exception:
+        _startup_msg = f"🐺 Wolf Online — {mode} mode"
+    send_alert(_startup_msg, "INFO", system=True)
 
     # ── Start feeds (non-fatal) ───────────────────────────────────────────────
     try:
@@ -282,6 +304,12 @@ async def main():
         from scripts.wolf_guardian import start as _guardian_start
         _guardian_start(_log_path, config)
         logger.info("🛡️ Wolf Guardian started — scanning for errors every 5 min")
+
+        # Auto-heal responder — clears expired positions + over-fit learning ranges automatically
+        from scripts.guardian_responder import run_responder_loop
+        _responder = threading.Thread(target=run_responder_loop, daemon=True, name="guardian-responder")
+        _responder.start()
+        logger.info("🔧 Auto-heal responder started")
     except Exception as _ge:
         logger.warning(f"Guardian failed to start (non-fatal): {_ge}")
 
@@ -315,6 +343,25 @@ async def main():
     try:
         while not _shutdown_requested:
             now = time.time()
+
+            # ── Daily loss circuit breaker (Blueprint Rule: halt if down 3%) ──
+            _daily_pnl_cb = risk.get_daily_pnl() if hasattr(risk, 'get_daily_pnl') else 0.0
+            try:
+                import sqlite3 as _sq_cb
+                _cb_conn = _sq_cb.connect(config.DB_PATH)
+                _today = __import__('datetime').date.today().isoformat()
+                _daily_pnl_cb = float(_cb_conn.execute(
+                    "SELECT COALESCE(SUM(pnl),0) FROM paper_trades "
+                    "WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0 "
+                    "AND date(timestamp,'unixepoch')=?", (_today,)
+                ).fetchone()[0])
+                _cb_conn.close()
+            except Exception:
+                _daily_pnl_cb = 0.0
+            if risk.check_daily_loss_circuit(_daily_pnl_cb, risk.current_balance):
+                logger.critical("[CIRCUIT BREAKER] Daily loss cap hit — halting for manual review")
+                send_alert(f"🚨 CIRCUIT BREAKER TRIGGERED\nDaily P&L: ${_daily_pnl_cb:.2f}\nBot halted — manual restart required", "CRITICAL")
+                break  # Exit scan loop
 
             # ── Strategy scans ────────────────────────────────────────────────
 
@@ -463,7 +510,33 @@ async def main():
                 except Exception as e:
                     logger.warning(f"Kalshi copy error: {e}")
 
-            # Priority 8: Market Making
+            # Priority 8: Gabagool Pair Trading — guaranteed profit when pair cost < $0.97
+            try:
+                for sig in await pair_trader.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] PairTrade: "
+                            f"{sig['market_id'][:20]}... {sig['side']}@{sig['price']:.3f} "
+                            f"| {sig.get('reason','')[:60]}"
+                        )
+            except Exception as e:
+                logger.warning(f"Pair trading error: {e}")
+
+            # Priority 9: Combinatorial Arb — multi-outcome sum < 1.0
+            try:
+                for sig in await combinatorial_arb.scan():
+                    res = order_manager.execute_signal(sig)
+                    if res["status"] in ("paper_executed", "live_executed"):
+                        logger.info(
+                            f"[{res['status']}] CombiArb: "
+                            f"{sig['market_id'][:20]}... {sig['side']}@{sig['price']:.3f} "
+                            f"| {sig.get('reason','')[:60]}"
+                        )
+            except Exception as e:
+                logger.warning(f"Combinatorial arb error: {e}")
+
+            # Priority 10: Market Making
             try:
                 for sig in await market_maker.scan():
                     res = order_manager.execute_signal(sig)

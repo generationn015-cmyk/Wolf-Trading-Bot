@@ -52,9 +52,27 @@ MIN_CONFIDENCE    = 0.70   # override config — be more selective here
 
 class ValueBetStrategy:
     def __init__(self):
-        self._fired: dict[str, float] = {}
         self._cache: list[dict] = []
         self._cache_ts: float = 0.0
+        self._fired: dict[str, float] = self._load_open_market_ids()
+
+    def _load_open_market_ids(self) -> dict:
+        """Seed dedup with currently-open value_bet market_ids to prevent re-entry on restart."""
+        try:
+            import sqlite3
+            if not os.path.exists(config.DB_PATH):
+                return {}
+            with sqlite3.connect(config.DB_PATH) as conn:
+                rows = conn.execute(
+                    "SELECT market_id FROM paper_trades "
+                    "WHERE strategy='value_bet' AND resolved=0 AND void=0"
+                ).fetchall()
+            fired = {r[0]: time.time() for r in rows}
+            if fired:
+                logger.info(f"Value_bet dedup seeded: {len(fired)} open markets protected from re-entry")
+            return fired
+        except Exception:
+            return {}
 
     def _get_markets(self) -> list[dict]:
         now = time.time()
@@ -168,6 +186,25 @@ class ValueBetStrategy:
             edge = (1.0 - no_price) * confidence - no_price * (1 - confidence) - POLY_FEE
             if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
                 return "NO", no_price, round(confidence, 3), f"Value NO@{no_price:.3f} mid-range vol=${vol:,.0f}"
+
+        # Case 5 (BOND): Near-certainty bet — YES ≥ 0.92 or NO ≤ 0.08
+        # High-probability end-state bets: market is near resolution, collect the spread
+        elif yes >= 0.92 and vol >= 20_000:
+            confidence = 0.82 + min(0.10, (vol / 2_000_000) * 0.10)
+            edge = (1.0 - yes) * confidence - yes * (1 - confidence) - POLY_FEE
+            if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
+                return "YES", yes, round(confidence, 3), f"Bond YES@{yes:.3f} near-certainty vol=${vol:,.0f}"
+
+        elif no <= 0.08 and yes >= 0.92 and vol >= 20_000:
+            pass  # covered above
+
+        elif yes <= 0.08 and vol >= 20_000:
+            # Near-certain NO (YES very unlikely)
+            no_px = round(1.0 - yes, 3)
+            confidence = 0.82 + min(0.10, (vol / 2_000_000) * 0.10)
+            edge = (1.0 - no_px) * confidence - no_px * (1 - confidence) - POLY_FEE
+            if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
+                return "NO", no_px, round(confidence, 3), f"Bond NO@{no_px:.3f} near-certainty vol=${vol:,.0f}"
 
         return None, None, None, None
 

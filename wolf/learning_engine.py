@@ -91,7 +91,7 @@ class LearningEngine:
                         SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
                         AVG(pnl) as avg_pnl,
                         AVG(entry_price) as avg_entry
-                    FROM paper_trades WHERE resolved=1 AND simulated=0
+                    FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
                     GROUP BY COALESCE(sub_strategy, strategy)
                 """).fetchall()
 
@@ -104,7 +104,8 @@ class LearningEngine:
                     # ── Rolling last-10-trade WR for this strategy ───────────
                     last10 = conn.execute("""
                         SELECT won FROM paper_trades
-                        WHERE resolved=1 AND simulated=0 AND COALESCE(sub_strategy,strategy)=?
+                        WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
+                        AND COALESCE(sub_strategy,strategy)=?
                         ORDER BY timestamp DESC LIMIT 10
                     """, (strat,)).fetchall()
                     rolling_wr = sum(r[0] for r in last10) / len(last10) if len(last10) >= 10 else None
@@ -130,7 +131,7 @@ class LearningEngine:
                         old = self.min_confidence_overrides.get(strat, config.MIN_CONFIDENCE)
                         # Larger step-up the further below target we are
                         step = 0.08 if wr < 0.40 else 0.05
-                        new_floor = min(0.92, old + step)
+                        new_floor = min(config.MIN_CONFIDENCE + 0.05, old + step)  # Cap at global min + 5% to preserve signal flow
                         self.min_confidence_overrides[strat] = new_floor
                         msg = f"[{strat}] WR={wr:.1%} < 65% — raising confidence floor {old:.2f}→{new_floor:.2f}"
                         _lh = hash(msg)
@@ -157,7 +158,7 @@ class LearningEngine:
                            SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins
                     FROM paper_trades WHERE resolved=1 AND simulated=0
                     GROUP BY ROUND(entry_price, 1)
-                    HAVING cnt >= 8  -- lowered from 15 — act faster on bad price ranges
+                    HAVING cnt >= 30  -- minimum 30 trades per bucket before flagging (need statistical significance)
                 """).fetchall()
 
                 self.bad_price_ranges = []
@@ -271,7 +272,7 @@ class LearningEngine:
                 continue
             wr = data["win_rate"]
             if wr < 0.60:
-                new_floor = min(0.85, self.min_confidence_overrides.get(strat, 0.65) + 0.03)
+                new_floor = min(config.MIN_CONFIDENCE + 0.05, self.min_confidence_overrides.get(strat, config.MIN_CONFIDENCE) + 0.03)
                 self.min_confidence_overrides[strat] = new_floor
                 msg = f"Analytics raised {strat} floor to {new_floor:.2f} (WR {wr:.1%})"
                 self.lesson_log.append(msg)

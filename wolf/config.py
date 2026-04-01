@@ -44,19 +44,25 @@ BINANCE_WS_ETH              = "wss://stream.binance.com:9443/ws/ethusdt@trade"
 LIVE_STARTING_CAPITAL       = float(os.getenv("LIVE_STARTING_CAPITAL", "100.0"))   # Phase 1 live: $100
 PAPER_STARTING_CAPITAL      = float(os.getenv("PAPER_STARTING_CAPITAL", "100.0"))  # Paper mirrors real $100 live account — earn its way up
 
+# ── Blueprint Risk Rules ──────────────────────────────────────────────────────
+DAILY_LOSS_CAP_PCT          = float(os.getenv("DAILY_LOSS_CAP_PCT", "0.03"))  # 3% daily loss = halt ($3 on $100)
+MODULE_CONSECUTIVE_LOSS_LIMIT = int(os.getenv("MODULE_CONSECUTIVE_LOSS_LIMIT", "2"))  # 2 losses → 24h module pause
+MODULE_PAUSE_SECONDS        = int(os.getenv("MODULE_PAUSE_SECONDS", "86400"))  # 24h pause after circuit break
+PHASE1_MAX_PORTFOLIO        = float(os.getenv("PHASE1_MAX_PORTFOLIO", "200.0"))  # Phase 1 cap — A/B/C only until $200
+
 # ─── RISK ENGINE PARAMETERS ──────────────────────────────────────────────────
 # Live: 8% per trade on $100 = $8 max/trade. Conservative for Phase 1.
-MAX_POSITION_PCT            = float(os.getenv("MAX_POSITION_PCT", "0.08"))   # 8% max per trade ($8 on $100 live)
-MAX_POSITION_PAPER          = float(os.getenv("MAX_POSITION_PAPER", "8.0"))   # Paper: mirror live $100 account — 8% of $100 = $8 max/trade
-MAX_POSITION_LIVE           = float(os.getenv("MAX_POSITION_LIVE", "8.0"))   # Hard cap $8 per live trade
+MAX_POSITION_PCT            = float(os.getenv("MAX_POSITION_PCT", "0.05"))   # 5% max per trade ($5 on $100) — Blueprint Phase 1 hard cap
+MAX_POSITION_PAPER          = float(os.getenv("MAX_POSITION_PAPER", "5.0"))   # Paper: 5% of $100 = $5 max/trade (Blueprint Rule 1)
+MAX_POSITION_LIVE           = float(os.getenv("MAX_POSITION_LIVE", "5.0"))   # Hard cap $5 per live trade
 MIN_POSITION_LIVE           = float(os.getenv("MIN_POSITION_LIVE", "1.0"))   # Min $1 (Polymarket minimum)
 DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt ($20 on live)
 KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch ($40 loss → full stop)
 MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))   # live hard cap
-MAX_OPEN_POSITIONS_PAPER    = int(os.getenv("MAX_OPEN_POSITIONS_PAPER", "24"))  # paper: wider net for data collection
+MAX_OPEN_POSITIONS_PAPER    = int(os.getenv("MAX_OPEN_POSITIONS_PAPER", "40"))  # paper: wider net for data collection
 VALUE_BET_MAX_DAYS          = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))  # Skip markets resolving >14 days out
-MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "12"))     # Force-exit after 12h in paper mode — keeps Wolf cycling faster for data
-MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "3"))
+MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "48"))     # Force-exit after 48h — gives prediction markets time to resolve naturally
+MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "8"))   # 8 per strategy allows active trading across all strategies
 MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
 
 # ─── STRATEGY PARAMETERS ─────────────────────────────────────────────────────

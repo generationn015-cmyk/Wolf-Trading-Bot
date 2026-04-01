@@ -22,8 +22,13 @@ class TradeRecord:
     pnl: Optional[float] = None
     status: str = "open"  # open | closed | cancelled
 
+# ── Module circuit breaker state (Blueprint Rule: 2 losses → 24h pause) ──────
+_module_consecutive_losses: dict = {}   # strategy → count
+_module_paused_until: dict = {}         # strategy → epoch timestamp
+
+
 class RiskEngine:
-    def __init__(self, starting_balance: float = 10000.0):  # default to $10K; always overridden by main.py
+    def __init__(self, starting_balance: float = 100.0):  # default to $100; always overridden by main.py
         self.starting_balance = starting_balance
         self.current_balance = starting_balance
         self.daily_start_balance = starting_balance
@@ -78,6 +83,36 @@ class RiskEngine:
 
         return True, "ok"
 
+    # ── Module circuit breaker ────────────────────────────────────────────────
+
+    def record_module_result(self, strategy: str, won: bool):
+        """Track consecutive losses per module. Pause module after N consecutive losses."""
+        if won:
+            _module_consecutive_losses[strategy] = 0
+        else:
+            _module_consecutive_losses[strategy] = _module_consecutive_losses.get(strategy, 0) + 1
+            if _module_consecutive_losses[strategy] >= config.MODULE_CONSECUTIVE_LOSS_LIMIT:
+                _module_paused_until[strategy] = time.time() + config.MODULE_PAUSE_SECONDS
+                logger.warning(f"[CIRCUIT] {strategy} paused for 24h after {_module_consecutive_losses[strategy]} consecutive losses")
+                _module_consecutive_losses[strategy] = 0  # Reset counter
+
+    def module_allowed(self, strategy: str) -> bool:
+        """Returns False if module is in circuit-breaker pause."""
+        paused_until = _module_paused_until.get(strategy, 0)
+        if time.time() < paused_until:
+            remaining = int((paused_until - time.time()) / 3600)
+            logger.debug(f"[CIRCUIT] {strategy} blocked — {remaining}h remaining in pause")
+            return False
+        return True
+
+    def check_daily_loss_circuit(self, daily_pnl: float, portfolio: float) -> bool:
+        """Returns True if daily loss circuit breaker should halt the bot."""
+        loss_threshold = portfolio * config.DAILY_LOSS_CAP_PCT
+        if daily_pnl < -abs(loss_threshold):
+            logger.critical(f"[CIRCUIT] Daily loss circuit breaker: {daily_pnl:.2f} < -{loss_threshold:.2f} — halting all modules")
+            return True
+        return False
+
     def get_position_size(self, edge: float, confidence: float,
                           entry_price: float = 0.5) -> float:
         """
@@ -105,11 +140,17 @@ class RiskEngine:
 
         # Hard caps — always enforced regardless of Kelly output
         if config.PAPER_MODE:
-            size = min(size, config.MAX_POSITION_PAPER)  # Paper: cap at $200 for realistic small-account sim
+            # Paper: cap scales with balance — 5% of current balance, not a fixed dollar ceiling
+            # This lets positions grow naturally as the account compounds
+            dynamic_paper_cap = self.current_balance * config.MAX_POSITION_PCT
+            size = min(size, dynamic_paper_cap)
+            size = max(size, 0.10)  # Minimum $0.10 (Polymarket floor)
         else:
             if size < config.MIN_POSITION_LIVE:
                 return 0.0  # Below minimum — skip trade entirely
-            size = min(size, config.MAX_POSITION_LIVE)
+            # Live: cap also scales with balance (5% Kelly max)
+            dynamic_live_cap = self.current_balance * config.MAX_POSITION_PCT
+            size = min(size, max(dynamic_live_cap, config.MAX_POSITION_LIVE))
 
         return round(size, 2)
 

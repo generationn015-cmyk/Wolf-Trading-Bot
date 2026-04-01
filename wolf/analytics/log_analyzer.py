@@ -42,7 +42,7 @@ class LogAnalyzer:
                        MIN(pnl) as worst,
                        MAX(pnl) as best,
                        AVG(confidence) as avg_conf
-                FROM paper_trades WHERE resolved=1 AND simulated=0 AND simulated=0 AND timestamp > ?
+                FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0 AND timestamp > ?
             """, (since,)).fetchone()
 
             # Per-strategy
@@ -56,7 +56,7 @@ class LogAnalyzer:
                        AVG(entry_price) as avg_price,
                        MIN(pnl) as worst,
                        MAX(pnl) as best
-                FROM paper_trades WHERE resolved=1 AND simulated=0 AND simulated=0 AND timestamp > ?
+                FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0 AND timestamp > ?
                 GROUP BY strategy
             """, (since,)).fetchall()
 
@@ -66,7 +66,7 @@ class LogAnalyzer:
                        COUNT(*) as total,
                        SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
                        SUM(pnl) as pnl
-                FROM paper_trades WHERE resolved=1 AND simulated=0 AND simulated=0 AND timestamp > ?
+                FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0 AND timestamp > ?
                 GROUP BY bucket ORDER BY bucket
             """, (since,)).fetchall()
 
@@ -76,7 +76,7 @@ class LogAnalyzer:
                        COUNT(*) as total,
                        SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
                        SUM(pnl) as pnl
-                FROM paper_trades WHERE resolved=1 AND simulated=0 AND simulated=0 AND timestamp > ?
+                FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0 AND timestamp > ?
                 GROUP BY hour_et ORDER BY hour_et
             """, (since,)).fetchall()
 

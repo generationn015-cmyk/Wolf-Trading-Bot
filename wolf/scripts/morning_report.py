@@ -15,7 +15,7 @@ c.execute(f'SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(p
 total, wins, pnl = c.fetchone()
 total = total or 0; wins = wins or 0; pnl = pnl or 0.0
 wr = wins/total if total else 0
-_starting = getattr(_cfg, 'PAPER_STARTING_CAPITAL', 10000.0)
+_starting = getattr(_cfg, 'PAPER_STARTING_CAPITAL', 100.0)
 balance = _starting + pnl
 
 c.execute(f"SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0")

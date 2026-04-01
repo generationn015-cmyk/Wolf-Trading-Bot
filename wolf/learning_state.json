@@ -1,11 +1,17 @@
 {
   "floors": {
-    "value_bet": 0.92
+    "value_bet": 0.7300000000000001,
+    "copy_trading": 0.68,
+    "market_making": 0.62
   },
-  "wallet_penalty": {},
+  "wallet_penalty": {
+    "Copy top trader 0x492442ea... PnL $957,857": 0.3,
+    "Copy top trader 0x507e52ef... PnL $96,256": 0.3,
+    "Copy top trader 0xa8e089ad... PnL $201,653": 0.3,
+    "Copy top trader 0xc8075693... PnL $200,886": 0.3,
+    "Copy top trader 0x507e52ef... PnL $81,875": 0.3
+  },
   "bad_ranges": [],
-  "paused": [
-    "value_bet"
-  ],
-  "saved_at": 1774985546.1854198
+  "paused": [],
+  "saved_at": 1775003972.7221038
 }

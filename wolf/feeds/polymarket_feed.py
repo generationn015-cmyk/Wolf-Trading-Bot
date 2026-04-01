@@ -74,30 +74,58 @@ def get_market_volume(market_id: str) -> float:
 _end_date_cache: dict = {}
 
 def get_market_end_date(market_id: str) -> Optional[float]:
-    """Returns days until market resolution, or None if unknown."""
+    """Returns days until market resolution, or None if unknown.
+    Handles both CLOB token IDs (hex) and Gamma condition IDs (0x hex, 66 chars).
+    """
     from datetime import datetime, timezone
     now = time.time()
     if market_id in _end_date_cache:
         ts, val = _end_date_cache[market_id]
         if now - ts < 300:  # 5 min cache
             return val
+
+    def _parse_days(data: list) -> Optional[float]:
+        if not data:
+            return None
+        end_raw = data[0].get("endDate") or data[0].get("endDateIso") or data[0].get("closeTime") or ""
+        if not end_raw:
+            return None
+        try:
+            end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+            if not end_dt.tzinfo:
+                end_dt = end_dt.replace(tzinfo=timezone.utc)
+            return max(0.0, (end_dt - datetime.now(timezone.utc)).total_seconds() / 86400)
+        except Exception:
+            return None
+
     try:
+        # Try condition_ids first (for 0x-prefixed conditionId from activity feed)
+        is_condition_id = market_id.startswith("0x") and len(market_id) >= 60
+        param_key = "condition_ids" if is_condition_id else "clob_token_ids"
         resp = requests.get(
             f"{config.POLYMARKET_GAMMA_URL}/markets",
-            params={"clob_token_ids": market_id},
+            params={param_key: market_id},
             timeout=8
         )
         if resp.ok:
-            data = resp.json()
-            if data:
-                end_raw = data[0].get("endDate") or data[0].get("endDateIso") or ""
-                if end_raw:
-                    end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
-                    if not end_dt.tzinfo:
-                        end_dt = end_dt.replace(tzinfo=timezone.utc)
-                    days = max(0.0, (end_dt - datetime.now(timezone.utc)).total_seconds() / 86400)
-                    _end_date_cache[market_id] = (now, days)
-                    return days
+            days = _parse_days(resp.json())
+            if days is not None:
+                _end_date_cache[market_id] = (now, days)
+                return days
+
+        # Fallback: try the other key if first failed
+        fallback_key = "clob_token_ids" if is_condition_id else "condition_ids"
+        resp2 = requests.get(
+            f"{config.POLYMARKET_GAMMA_URL}/markets",
+            params={fallback_key: market_id},
+            timeout=8
+        )
+        if resp2.ok:
+            days = _parse_days(resp2.json())
+            if days is not None:
+                _end_date_cache[market_id] = (now, days)
+                return days
+
     except Exception as e:
         logger.debug(f"get_market_end_date error {market_id[:12]}: {e}")
     _end_date_cache[market_id] = (now, None)

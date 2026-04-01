@@ -16,6 +16,10 @@
     "polymarket-trade": {
       "version": "1.0.3",
       "installedAt": 1774983601671
+    },
+    "free-ride": {
+      "version": "1.0.7",
+      "installedAt": 1774998181553
     }
   }
 }

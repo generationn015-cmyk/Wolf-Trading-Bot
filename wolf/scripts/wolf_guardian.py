@@ -160,7 +160,7 @@ def check_db_integrity(config) -> list[dict]:
         rows = c.execute("""
             SELECT COALESCE(sub_strategy, strategy) as track_key,
                    COUNT(*) as t, SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as w
-            FROM paper_trades WHERE resolved=1 AND simulated=0
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
             GROUP BY track_key HAVING t >= 5
         """).fetchall()
         # Load paused strategies once for all checks below
@@ -194,12 +194,12 @@ def check_db_integrity(config) -> list[dict]:
         # ── 1b. Rolling last-10-trade WR drop ────────────────────────────────
         strat_keys = c.execute("""
             SELECT DISTINCT COALESCE(sub_strategy, strategy)
-            FROM paper_trades WHERE resolved=1 AND simulated=0
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
         """).fetchall()
         for (track_key,) in strat_keys:
             last10 = c.execute("""
                 SELECT won FROM paper_trades
-                WHERE resolved=1 AND simulated=0
+                WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
                 AND COALESCE(sub_strategy, strategy)=?
                 ORDER BY timestamp DESC LIMIT 10
             """, (track_key,)).fetchall()
@@ -233,7 +233,7 @@ def check_db_integrity(config) -> list[dict]:
         if void_row and void_row[0] >= 5:
             total, voids = void_row
             void_pct = voids / total
-            if void_pct > 0.20:  # >20% void rate is a problem
+            if void_pct > 0.40:  # >40% void rate is a problem (was 20%, raised to account for cleanup events)
                 key = "high_void_rate"
                 if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
                     _db_check_cooldown[key] = now
@@ -322,7 +322,7 @@ def check_db_integrity(config) -> list[dict]:
         ).fetchone()
         if pnl_row and pnl_row[0] is not None:
             real_pnl = pnl_row[0]
-            starting = getattr(config, 'PAPER_STARTING_CAPITAL', 10000.0)
+            starting = getattr(config, 'PAPER_STARTING_CAPITAL', 100.0)
             balance = starting + real_pnl
             if balance > starting * 20:  # 20x starting capital is suspicious
                 key = "runaway_balance"
