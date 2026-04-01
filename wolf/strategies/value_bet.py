@@ -37,6 +37,7 @@ import requests
 import config
 from datetime import datetime, timezone, timedelta
 from learning_engine import learning
+from market_priority import fetch_prioritized_markets, get_expiry_summary
 
 logger = logging.getLogger("wolf.strategy.value_bet")
 
@@ -75,68 +76,29 @@ class ValueBetStrategy:
             return {}
 
     def _get_markets(self) -> list[dict]:
+        """Fetch markets sorted by expiry urgency (today first, then day-by-day)."""
         now = time.time()
         if now - self._cache_ts < 90 and self._cache:
             return self._cache
         try:
-            resp = requests.get(
-                "https://gamma-api.polymarket.com/markets",
-                params={"active": True, "limit": 200, "closed": False},
-                timeout=10,
+            import config as _cfg
+            max_days = 7 if _cfg.PAPER_MODE else 365
+
+            markets = fetch_prioritized_markets(
+                limit=500,
+                min_liquidity=0,
+                min_volume=MIN_VOLUME,
+                max_days=max_days,
+                require_two_sided=True,
             )
-            if not resp.ok:
-                return self._cache
-            markets = resp.json()
             if not isinstance(markets, list):
                 return self._cache
 
-            filtered = []
-            now_dt = datetime.now(timezone.utc)
+            # Add ID field for dedup
             for m in markets:
-                op = m.get("outcomePrices", [])
-                if isinstance(op, str):
-                    try: op = _json.loads(op)
-                    except: op = []
-                if not op or len(op) < 2:
-                    continue
-                try:
-                    p0, p1 = float(op[0]), float(op[1])
-                except:
-                    continue
+                m["_id"] = m.get("conditionId") or m.get("id", "")
 
-                vol = float(m.get("volumeNum", 0) or 0)
-                if vol < MIN_VOLUME:
-                    continue
-
-                # Score market duration — shorter = higher priority, but don't block long ones
-                end_raw = m.get("endDate") or m.get("endDateIso") or ""
-                days_out = 999
-                if end_raw:
-                    try:
-                        end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
-                        if not end_dt.tzinfo:
-                            end_dt = end_dt.replace(tzinfo=timezone.utc)
-                        days_out = max(0, (end_dt - now_dt).days)
-                    except Exception:
-                        pass
-                m["_days_to_expiry"] = days_out
-
-                # Paper mode: prefer short-duration markets to get real resolutions quickly
-                # Skip very long-term markets during paper test (no data feedback for months)
-                import config as _cfg
-                # 14-day paper window: enough markets, short enough for real resolutions
-                # Hard rule: never take >14-day positions in paper mode (keeps capital cycling)
-                max_days = 14 if _cfg.PAPER_MODE else 365
-                if days_out > max_days and days_out != 999:
-                    continue
-
-                m["_yes_price"] = p0
-                m["_no_price"]  = p1
-                m["_volume"]    = vol
-                m["_id"]        = m.get("conditionId") or m.get("id", "")
-                filtered.append(m)
-
-            self._cache = filtered
+            self._cache = markets
             self._cache_ts = now
         except Exception as e:
             logger.warning(f"ValueBet market fetch: {e}")

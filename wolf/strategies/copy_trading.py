@@ -208,12 +208,13 @@ class CopyTrader:
 
                 # Validate market is CURRENT — skip if market end date is in the past
                 # This prevents Wolf from entering positions in ancient/resolved markets
-                market_id_check2 = latest.get("conditionId", "")
-                if market_id_check2:
+                # Use slug from activity feed (more reliable than conditionId query)
+                _market_slug = latest.get("slug", "")
+                if _market_slug:
                     try:
                         _mkt_resp = requests.get(
                             "https://gamma-api.polymarket.com/markets",
-                            params={"conditionId": market_id_check2}, timeout=5
+                            params={"slug": _market_slug}, timeout=5
                         )
                         _mkt_data = _mkt_resp.json()
                         _mkt = _mkt_data[0] if isinstance(_mkt_data, list) and _mkt_data else {}
@@ -223,7 +224,7 @@ class CopyTrader:
                             _end_dt = datetime.fromisoformat(_end_raw.replace("Z", "+00:00"))
                             if not _end_dt.tzinfo: _end_dt = _end_dt.replace(tzinfo=_tz.utc)
                             if _end_dt.timestamp() < time.time():
-                                logger.debug(f"[COPY] Skipping expired market {market_id_check2[:20]} ended {_end_raw[:10]}")
+                                logger.debug(f"[COPY] Skipping expired market {_market_slug} ended {_end_raw[:10]}")
                                 continue  # Market already ended — don't enter
                     except Exception:
                         pass  # If lookup fails, proceed cautiously

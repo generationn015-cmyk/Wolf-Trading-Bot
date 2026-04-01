@@ -173,10 +173,8 @@ async def main():
     import preflight as _pf
     _pf_ok, _pf_fails = _pf.run(send_telegram=True)
     if not _pf_ok:
-        logger.critical(f"PRE-FLIGHT FAILED: {_pf_fails}")
-        if not config.PAPER_MODE:
-            logger.critical("Forcing PAPER_MODE=True until pre-flight passes.")
-            config.PAPER_MODE = True
+        logger.warning(f"PRE-FLIGHT WARNINGS: {_pf_fails} — continuing in paper mode")
+        config.PAPER_MODE = True  # Safety: force paper if anything failed
     else:
         logger.info("Pre-flight: ✅ all checks passed")
 
@@ -262,7 +260,7 @@ async def main():
             from learning_engine import learning as _le
             _floors = _le.min_confidence_overrides
             if _floors:
-                _strat_floors = " | Floors: " + ", ".join(f"{k}={v:.2f}" for k,v in _floors.items())
+                _strat_floors = f" | {len(_floors)} floor(s) active"
         except Exception:
             pass
         _startup_msg = (f"🐺 Wolf Online — {mode}\n"

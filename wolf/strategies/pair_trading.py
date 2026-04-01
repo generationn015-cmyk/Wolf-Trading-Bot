@@ -26,6 +26,7 @@ import asyncio
 import requests
 import json as _json
 from dataclasses import dataclass, field
+from market_priority import fetch_prioritized_markets
 from typing import Optional
 import config
 
@@ -40,6 +41,7 @@ COOLDOWN_SEC         = 1800  # 30 min cooldown per market after a pair completes
 MAX_PENDING_PAIRS    = 6     # Max number of open "one leg filled" positions
 MIN_VOLUME           = 10_000  # $10K minimum market volume
 EXPIRY_MIN_HOURS     = 0.5   # Don't enter if market resolves in less than 30 minutes
+EXPIRY_MAX_HOURS     = 168    # Don't enter if market resolves in > 7 days (paper mode)
 
 
 @dataclass
@@ -76,20 +78,38 @@ class PairTrader:
         self._market_cache: list[dict] = []
         self._cache_ts: float = 0.0
         self._cache_ttl: float = 120  # 2 min refresh
+        self._seed_pending_from_db()
+
+    def _seed_pending_from_db(self):
+        """Restore pending YES legs from DB after restart — prevents duplicate YES entries."""
+        try:
+            import sqlite3, os
+            db_path = getattr(config, 'DB_PATH', None)
+            if not db_path or not os.path.exists(db_path):
+                return
+            conn = sqlite3.connect(db_path, timeout=3)
+            rows = conn.execute(
+                "SELECT market_id, entry_price, volume, reason "
+                "FROM paper_trades WHERE strategy='pair_trading' AND side='YES' AND resolved=0"
+            ).fetchall()
+            for mid, entry, vol, reason in rows:
+                self._pending[mid] = PendingPair(market_id=mid, question=reason or "pair leg 1",
+                                                  yes_cost=entry, yes_filled=True)
+            conn.close()
+            if self._pending:
+                logger.info(f"Pair trading dedup seeded: {len(self._pending)} open YES legs protected")
+        except Exception as e:
+            logger.debug(f"Pair trading DB seed failed: {e}")
 
     def _fetch_markets(self) -> list[dict]:
         now = time.time()
         if now - self._cache_ts < self._cache_ttl and self._market_cache:
             return self._market_cache
         try:
-            resp = requests.get(
-                "https://gamma-api.polymarket.com/markets",
-                params={"active": True, "limit": 60, "closed": False},
-                timeout=10,
+            markets = fetch_prioritized_markets(
+                limit=60,
+                max_days=7,
             )
-            if not resp.ok:
-                return self._market_cache
-            markets = resp.json()
             if not isinstance(markets, list):
                 return self._market_cache
 
@@ -129,7 +149,7 @@ class PairTrader:
                         hours_left = (end_dt - now_dt).total_seconds() / 3600
                     except Exception:
                         pass
-                if hours_left < EXPIRY_MIN_HOURS:
+                if hours_left < EXPIRY_MIN_HOURS :
                     continue
 
                 m["_yes_price"] = p_yes

@@ -31,6 +31,7 @@ from difflib import SequenceMatcher
 from typing import Optional
 import config
 from feeds.kalshi_feed import get_active_markets as kalshi_markets
+from market_priority import fetch_prioritized_markets
 
 logger = logging.getLogger("wolf.strategy.cross_platform_arb")
 
@@ -71,11 +72,7 @@ class CrossPlatformArb:
         if now - self._poly_ts < 180 and self._poly_cache:
             return self._poly_cache
         try:
-            resp = requests.get(
-                "https://gamma-api.polymarket.com/markets",
-                params={"active": True, "limit": 100, "closed": False},
-                timeout=10,
-            )
+            resp = fetch_prioritized_markets(limit=200, max_days=7)
             if not resp.ok:
                 return self._poly_cache
             markets = resp.json()

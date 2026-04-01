@@ -70,10 +70,12 @@ The goal is to be the most disciplined one.
 
 **For general conversation:** Gemini 2.0 Flash (google/gemini-2.0-flash-001 via OpenRouter) — cheap ($0.10/$0.40 per 1M), fast, 1M context. Use for casual chat, quick lookups, non-trading tasks.
 
-**OpenClaw cannot auto-route per-topic** — the primary model is set system-wide. In practice:
-- Default stays Claude Sonnet (covers all trading safely)
-- Jefe can switch to Gemini 2.0 Flash for casual sessions with `/model Gemini 2.0 Flash`
-- Switch back to Claude for trading with `/model Claude Sonnet 4.6 (OpenRouter)`
+**MiMo-V2-Pro** (xiaomi/mimo-v2-pro via OpenRouter) — Xiaomi's flagship 1T+ parameter model, 1M context, optimized for agentic scenarios. Top-tier on PinchBench/ClawBench, approaching Opus 4.6 quality. Good for complex Wolf strategy work as an alternative to Claude.
+
+**OpenClaw cannot auto-route per-topic** — the primary model is set system-wide. Switch with:
+- `/model Claude Sonnet 4.6 (OpenRouter)` — trading & builds
+- `/model MiMo-V2-Pro` — alias: `openrouter/xiaomi/mimo-v2-pro`
+- `/model Gemini 2.0 Flash` — casual / cheap tasks
 
 Never fall back to OpenAI direct (quota issues). No GPT as primary.
 

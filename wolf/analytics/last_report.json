@@ -1,285 +1,59 @@
 {
   "period_hours": 24,
-  "generated_at": 1775005542.893383,
+  "generated_at": 1775072502.6234276,
   "overall": {
-    "total_trades": 6,
-    "wins": 4,
-    "losses": 2,
-    "win_rate": 0.6666666666666666,
-    "total_pnl": 337.13,
-    "avg_pnl_per_trade": 56.19,
-    "best_trade": 201.16,
-    "worst_trade": -104.5,
-    "avg_confidence": 0.748
+    "total_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "win_rate": 0,
+    "total_pnl": 0,
+    "avg_pnl_per_trade": 0,
+    "best_trade": 0,
+    "worst_trade": 0,
+    "avg_confidence": 0
   },
-  "by_strategy": {
-    "copy_trading": {
-      "total": 1,
-      "wins": 1,
-      "win_rate": 1.0,
-      "pnl": 1.96,
-      "avg_pnl": 1.96,
-      "avg_confidence": 0.715,
-      "avg_price": 0.51,
-      "best": 1.96,
-      "worst": 1.96
-    },
-    "market_making": {
-      "total": 2,
-      "wins": 1,
-      "win_rate": 0.5,
-      "pnl": 96.66,
-      "avg_pnl": 48.33,
-      "avg_confidence": 0.78,
-      "avg_price": 0.495,
-      "best": 201.16,
-      "worst": -104.5
-    },
-    "value_bet": {
-      "total": 3,
-      "wins": 2,
-      "win_rate": 0.667,
-      "pnl": 238.51,
-      "avg_pnl": 79.5,
-      "avg_confidence": 0.737,
-      "avg_price": 0.2,
-      "best": 187.41,
-      "worst": -41.98
-    }
-  },
-  "price_buckets": [
-    {
-      "range": "0.0\u20130.1",
-      "total": 1,
-      "win_rate": 1.0,
-      "pnl": 93.07,
-      "flag": ""
-    },
-    {
-      "range": "0.1\u20130.2",
-      "total": 1,
-      "win_rate": 1.0,
-      "pnl": 187.41,
-      "flag": ""
-    },
-    {
-      "range": "0.3\u20130.4",
-      "total": 1,
-      "win_rate": 1.0,
-      "pnl": 201.16,
-      "flag": ""
-    },
-    {
-      "range": "0.4\u20130.5",
-      "total": 1,
-      "win_rate": 0.0,
-      "pnl": -41.98,
-      "flag": ""
-    },
-    {
-      "range": "0.5\u20130.6",
-      "total": 1,
-      "win_rate": 1.0,
-      "pnl": 1.96,
-      "flag": ""
-    },
-    {
-      "range": "0.6\u20130.7",
-      "total": 1,
-      "win_rate": 0.0,
-      "pnl": -104.5,
-      "flag": ""
-    }
-  ],
-  "hourly_performance": [
-    {
-      "hour_et": 0,
-      "total": 1,
-      "win_rate": 1.0,
-      "pnl": 1.96
-    },
-    {
-      "hour_et": 22,
-      "total": 2,
-      "win_rate": 1.0,
-      "pnl": 280.48
-    },
-    {
-      "hour_et": 23,
-      "total": 3,
-      "win_rate": 0.333,
-      "pnl": 54.69
-    }
-  ],
+  "by_strategy": {},
+  "price_buckets": [],
+  "hourly_performance": [],
   "worst_losses": [
     {
-      "strategy": "market_making",
-      "entry_price": 0.645,
-      "side": "NO",
-      "pnl": -104.5,
-      "reason": "MM both sides \u2014 paired hedge"
+      "strategy": "value_bet",
+      "entry_price": 0.282,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Value YES@0.282 mid-range vol=$294,768 | Will Harvey Weinstein be sent"
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.405,
-      "side": "NO",
-      "pnl": -41.98,
-      "reason": "ValueBet: Value NO@0.405 mid-range vol=$366,471 | BitBoy convicted?"
+      "entry_price": 0.095,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Underdog YES@0.095 vol=$5,693,439 | MegaETH market cap (FDV) >$2B one "
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.074,
+      "entry_price": 0.0735,
       "side": "YES",
       "pnl": 0,
-      "reason": "ValueBet: Underdog YES@0.074 vol=$50,983 | Will Harvey Weinstein be sentenced to"
+      "reason": "ValueBet: Underdog YES@0.073 vol=$51,086 | Will Harvey Weinstein be sentenced to"
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.105,
+      "entry_price": 0.175,
       "side": "YES",
       "pnl": 0,
-      "reason": "ValueBet: Underdog YES@0.105 vol=$5,689,451 | MegaETH market cap (FDV) >$2B one "
+      "reason": "ValueBet: Underdog YES@0.175 vol=$122,784 | Will Harvey Weinstein be sentenced t"
     },
     {
       "strategy": "value_bet",
-      "entry_price": 0.2805,
+      "entry_price": 0.256,
       "side": "YES",
       "pnl": 0,
-      "reason": "ValueBet: Value YES@0.281 mid-range vol=$294,713 | Will Harvey Weinstein be sent"
-    },
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.32,
-      "side": "NO",
-      "pnl": 0,
-      "reason": "ValueBet: Value NO@0.320 mid-range vol=$588,242 | BitBoy convicted?"
-    },
-    {
-      "strategy": "market_making",
-      "entry_price": 0.377,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "MM 0xb48621f7eba07b\u2026 spread=0.184 vol=$598,759 VPIN=0.236"
-    },
-    {
-      "strategy": "market_making",
-      "entry_price": 0.613,
-      "side": "NO",
-      "pnl": 0,
-      "reason": "MM both sides \u2014 paired hedge"
-    },
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.385,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "ValueBet: Value YES@0.385 mid-range vol=$515,291 | Will Poland qualify for the 2"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.5499900541551254,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x492442ea... PnL $861,356"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.4500000042307695,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x6a72f618... PnL $611,206"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.52,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0xa8e089ad... PnL $202,773"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.46,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0xc8075693... PnL $195,399"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.45,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0xde9f0315... PnL $88,753"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.33,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x177600e5... PnL $73,655"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.42,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x507e52ef... PnL $76,357"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.52,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x507e52ef... PnL $76,357"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.640000002304,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x6a72f618... PnL $611,206"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.52,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "Copy top trader 0x492442ea... PnL $957,857"
-    },
-    {
-      "strategy": "copy_trading",
-      "entry_price": 0.4747274127849298,
-      "side": "NO",
-      "pnl": 0,
-      "reason": "Copy top trader 0x1a5c09d9... PnL $236,409"
+      "reason": "ValueBet: Underdog YES@0.256 vol=$153,317 | Will Harvey Weinstein be sentenced t"
     }
   ],
-  "wallet_performance": [
-    {
-      "wallet": "0xc8075693..",
-      "total": 6,
-      "win_rate": 0.0,
-      "pnl": 0
-    },
-    {
-      "wallet": "0xa8e089ad..",
-      "total": 5,
-      "win_rate": 0.0,
-      "pnl": 0
-    },
-    {
-      "wallet": "0x507e52ef..",
-      "total": 8,
-      "win_rate": 0.0,
-      "pnl": 0
-    },
-    {
-      "wallet": "0x492442ea..",
-      "total": 4,
-      "win_rate": 0.0,
-      "pnl": 0
-    }
-  ],
+  "wallet_performance": [],
   "lessons": [
-    "\ud83d\udd34 Overall WR 66.7% \u2014 below target. Tighten filters."
+    "\ud83d\udd34 Overall WR 0.0% \u2014 below target. Tighten filters."
   ]
 }

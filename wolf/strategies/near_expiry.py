@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import Optional
 import config
 from feeds.kalshi_feed import get_active_markets as kalshi_markets
+from market_priority import fetch_prioritized_markets
 
 logger = logging.getLogger("wolf.strategy.near_expiry")
 
@@ -96,15 +97,7 @@ class NearExpiryStrategy:
         if now - self._poly_ts < 120 and self._poly_cache:
             return self._poly_cache
         try:
-            resp = requests.get(
-                "https://gamma-api.polymarket.com/markets",
-                params={"active": True, "limit": 500, "closed": False,
-                        "order": "endDate", "ascending": True},
-                timeout=10,
-            )
-            if not resp.ok:
-                return self._poly_cache
-            markets = resp.json()
+            markets = fetch_prioritized_markets(limit=200, max_days=7)
             if not isinstance(markets, list):
                 return self._poly_cache
 

@@ -29,6 +29,7 @@ def _get_clob_spread_value(clob_token_id: str) -> float:
         return 0.0
 
 from learning_engine import learning
+from market_priority import fetch_prioritized_markets
 
 logger = logging.getLogger("wolf.strategy.market_making")
 
@@ -59,15 +60,14 @@ class MarketMaker:
         if now - self._cache_ts < self._cache_ttl and self._market_cache:
             return self._market_cache
         try:
-            resp = requests.get(
-                "https://gamma-api.polymarket.com/markets",
-                params={"active": True, "limit": 200, "closed": False,
-                        "liquidity_num_min": 10000},  # Only liquid markets
-                timeout=15,
+            markets_raw = fetch_prioritized_markets(
+                limit=200,
+                min_liquidity=10000,
+                min_volume=0,
+                max_days=180,
+                custom_params={"liquidity_num_min": 10000},
             )
-            if not resp.ok:
-                return self._market_cache
-            markets = resp.json()
+            markets = markets_raw
             if not isinstance(markets, list):
                 return self._market_cache
 
@@ -107,10 +107,11 @@ class MarketMaker:
                 # Short-term (<1h): skip — too close to resolution, adverse selection risk
                 # Long-term (>180d): skip — too illiquid for spread capture
                 # The real sweet spot: high-volume liquid markets at ANY duration
-                if _days < (1/24):   # Under 1 hour — skip (resolution imminent)
+                if _days < (2/24):   # Under 2 hours — skip (resolution imminent, adverse selection)
                     continue
                 if _days > 180:  # Over 180 days — skip (too far, low activity)
                     continue
+                # Boost priority for <7 day markets — faster resolution = more learning
 
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1

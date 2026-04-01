@@ -33,6 +33,7 @@ from typing import Optional
 import requests
 import config
 from feeds.binance_feed import btc_feed, eth_feed
+from market_priority import fetch_prioritized_markets
 
 logger = logging.getLogger("wolf.strategy.ta_signal")
 
@@ -227,11 +228,7 @@ class TASignalStrategy:
         if now - self._poly_ts < 90 and self._poly_cache:
             return self._poly_cache
         try:
-            resp = requests.get(
-                "https://gamma-api.polymarket.com/markets",
-                params={"active": True, "limit": 100, "closed": False},
-                timeout=10,
-            )
+            resp = fetch_prioritized_markets(limit=200, max_days=7)
             if not resp.ok:
                 return self._poly_cache
             markets = resp.json()

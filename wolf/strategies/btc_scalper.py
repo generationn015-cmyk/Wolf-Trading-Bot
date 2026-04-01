@@ -22,6 +22,7 @@ import json as _json
 import requests
 import config
 from learning_engine import learning
+from market_priority import fetch_prioritized_markets
 
 logger = logging.getLogger("wolf.strategy.btc_scalper")
 
@@ -64,16 +65,7 @@ def _fetch_btc_markets() -> list[dict]:
         return _market_cache
 
     try:
-        resp = requests.get(
-            "https://gamma-api.polymarket.com/markets",
-            params={
-                "active": True,
-                "closed": False,
-                "limit": 100,
-                "tag": "bitcoin",
-            },
-            timeout=10,
-        )
+        resp = fetch_prioritized_markets(limit=200, max_days=7)
         if not resp.ok:
             return _market_cache
 

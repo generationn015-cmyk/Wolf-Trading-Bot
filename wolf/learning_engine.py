@@ -49,6 +49,9 @@ class LearningEngine:
         except Exception as e:
             logger.warning(f"Learning state load failed: {e}")
 
+    def save_state(self):  # public alias for external callers (guardian, etc.)
+        return self._save_state()
+
     def _save_state(self):
         """Persist learning state to disk so floors survive restarts."""
         try:
@@ -282,7 +285,7 @@ class LearningEngine:
         floors = self.min_confidence_overrides
         return (
             f"Learning engine: {len(self.lesson_log)} lessons | "
-            f"Floors: {floors} | "
+            f"Floors: {len(floors)} floor(s) | "
             f"Bad ranges: {len(self.bad_price_ranges)} | "
             f"Penalized wallets: {len(self.wallet_penalty)}"
         )

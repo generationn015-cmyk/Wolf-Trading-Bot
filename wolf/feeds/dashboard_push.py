@@ -260,6 +260,17 @@ def push_to_dashboard(force: bool = False) -> bool:
         except Exception:
             pass
 
+        # ── Per-strategy performance query (used by sections 8+9) ──────────────
+        strat_rows = c.execute("""
+            SELECT strategy,
+                   COUNT(*) as trades,
+                   SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
+                   SUM(pnl) as pnl,
+                   AVG(entry_price) as avg_price
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
+            GROUP BY strategy
+        """).fetchall()
+
         # ── 8. Activity log via webhook (evolution/learning updates) ────────────
         # Post strategy performance summary as alert events
         try:
@@ -291,24 +302,52 @@ def push_to_dashboard(force: bool = False) -> bool:
             sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             from learning_engine import LearningEngine
             le = LearningEngine()
-            status = le.get_status()
-            progress = le.get_progress()
-            lessons_raw = le.get_lessons() if hasattr(le, 'get_lessons') else []
-        except Exception:
-            status = "Learning engine initializing"
-            progress = 0
-            lessons_raw = []
+            status_text = le.get_status()
+            # Build learning data from actual engine methods
+            floors = {}
+            for strat_name, t, w, p, _ in strat_rows:
+                try:
+                    floors[strat_name] = round(float(le.get_confidence_floor(strat_name)), 4)
+                except Exception:
+                    pass
+            bad_ranges = len(le.bad_price_ranges) if hasattr(le, 'bad_price_ranges') else 0
+            paused = list(le.paused_strategies) if hasattr(le, 'paused_strategies') else []
+            penalized = len(le.wallet_penalty) if hasattr(le, 'wallet_penalty') else 0
 
-        # Per-strategy performance for evolution tab
-        strat_rows = c.execute("""
-            SELECT strategy,
-                   COUNT(*) as trades,
-                   SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
-                   SUM(pnl) as pnl,
-                   AVG(entry_price) as avg_price
-            FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
-            GROUP BY strategy
-        """).fetchall()
+            # Per-strategy lessons from DB
+            strat_rows_for_learning = c.execute("""
+                SELECT strategy,
+                       COUNT(*) as trades,
+                       SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins,
+                       SUM(pnl) as pnl
+                FROM paper_trades WHERE resolved=1 AND simulated=0 AND void=0
+                GROUP BY strategy
+            """).fetchall()
+            lessons_raw = []
+            for s, t, w, p in strat_rows_for_learning:
+                if t > 0:
+                    wr = round(w/t*100)
+                    lessons_raw.append(f"{s.replace('_',' ').title()}: {w}/{t} WR {wr}% P&L ${float(p or 0):+.2f}")
+            if not lessons_raw:
+                lessons_raw = ["Paper test running — waiting for first resolutions",
+                               "Strategies: Value Bet · Copy Trading · Market Making",
+                               "Learning engine active — tracking floors and bad ranges"]
+
+            # Push learning data to state endpoint
+            _post("learning", {
+                "progress": total_t,
+                "modulesCompleted": len([s for s, t, w, p in strat_rows_for_learning if t >= 5 and w/t > 0.5]),
+                "totalModules": 13,
+                "currentModule": status_text,
+                "accuracy": win_rate,
+                "lessonsLearned": lessons_raw[:10],
+                "floors": floors,
+                "badRanges": bad_ranges,
+                "pausedStrategies": paused,
+                "penalizedWallets": penalized,
+            })
+        except Exception as e:
+            logger.debug(f"Learning push error: {e}")
 
         lessons = [f"{s}: {w}/{t} WR {round(w/t*100)}% P&L ${float(p or 0):+.2f}"
                    for s, t, w, p, _ in strat_rows if t > 0]

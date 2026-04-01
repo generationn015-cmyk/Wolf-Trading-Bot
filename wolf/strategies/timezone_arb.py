@@ -33,6 +33,7 @@ import config
 import config
 POLYMARKET_GAMMA_URL = config.POLYMARKET_GAMMA_URL
 import json as _json
+from market_priority import fetch_prioritized_markets
 
 logger = logging.getLogger("wolf.strategy.timezone_arb")
 
@@ -177,14 +178,10 @@ class TimezoneArb:
         if now - self._market_cache_ts < self._market_ttl and self._market_cache:
             return self._market_cache
         try:
-            resp = requests.get(
-                f"{POLYMARKET_GAMMA_URL}/markets",
-                params={"active": True, "limit": 100, "closed": False},
-                timeout=10,
+            markets = fetch_prioritized_markets(
+                limit=100,
+                max_days=30,
             )
-            if not resp.ok:
-                return self._market_cache
-            markets = resp.json()
             if not isinstance(markets, list):
                 return self._market_cache
 

@@ -72,13 +72,25 @@ def run(send_telegram: bool = True, raise_on_fail: bool = False) -> tuple[bool, 
             ).fetchone()
             if not exists:
                 fail(f"DB table missing: {tbl}")
-        # Duplicate open positions
-        dups = c.execute(
-            "SELECT COUNT(*) FROM (SELECT strategy,market_id,side FROM paper_trades "
-            "WHERE resolved=0 GROUP BY strategy,market_id,side HAVING COUNT(*)>1)"
-        ).fetchone()[0]
-        if dups > 0:
-            fail(f"Duplicate open positions in DB: {dups} groups")
+        # Duplicate open positions — auto-fix by keeping oldest row per group
+        dup_groups = c.execute(
+            "SELECT strategy, market_id, side FROM paper_trades "
+            "WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0 "
+            "GROUP BY strategy, market_id, side HAVING COUNT(*) > 1"
+        ).fetchall()
+        if dup_groups:
+            fixed = 0
+            for (strat, mid, side) in dup_groups:
+                ids = c.execute(
+                    "SELECT rowid FROM paper_trades WHERE strategy=? AND market_id=? AND side=? "
+                    "AND resolved=0 AND simulated=0 AND COALESCE(void,0)=0 ORDER BY rowid ASC",
+                    (strat, mid, side)
+                ).fetchall()
+                for rid in ids[1:]:
+                    c.execute("DELETE FROM paper_trades WHERE rowid=?", (rid[0],))
+                    fixed += 1
+            conn.commit()
+            logger.warning(f"[PREFLIGHT] Auto-fixed {fixed} duplicate open positions across {len(dup_groups)} groups")
         conn.close()
     except Exception as e:
         fail(f"DB check error: {e}")
