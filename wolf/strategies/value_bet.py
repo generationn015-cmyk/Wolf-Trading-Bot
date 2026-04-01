@@ -155,7 +155,7 @@ class ValueBetStrategy:
         # This means the market says ~75-97% chance of NO.
         # We bet YES only if the underdog has better real odds than the market shows.
         # Signal: large volume at low YES price = active market, not abandoned
-        if MIN_ENTRY_PRICE <= yes <= 0.25 and vol >= 5_000:
+        if MIN_ENTRY_PRICE <= yes <= 0.28 and vol >= 5_000:  # Widened from 0.25 — mid-range disabled
             # The market has significant volume and prices YES very low
             # Contrarian bet: Yes has residual value the crowd ignores
             # Real edge: yes at 0.10 on a $300k market = high liquidity = real signal
@@ -172,20 +172,11 @@ class ValueBetStrategy:
             if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
                 return "NO", no, round(confidence, 3), f"Underdog NO@{no:.3f} (YES={yes:.3f}) vol=${vol:,.0f}"
 
-        # Case 3: Mid-range YES lean (0.28-0.42) — buy YES as mild underdog
-        elif 0.28 <= yes <= 0.42 and vol >= 10_000:
-            confidence = 0.70 + min(0.08, (vol / 1_000_000) * 0.08)
-            edge = (1.0 - yes) * confidence - yes * (1 - confidence) - POLY_FEE
-            if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
-                return "YES", yes, round(confidence, 3), f"Value YES@{yes:.3f} mid-range vol=${vol:,.0f}"
-
-        # Case 4: Mid-range NO lean (YES 0.58-0.72) — buy NO as mild underdog
-        elif 0.58 <= yes <= 0.72 and vol >= 10_000:
-            no_price = round(1.0 - yes, 3)
-            confidence = 0.70 + min(0.08, (vol / 1_000_000) * 0.08)
-            edge = (1.0 - no_price) * confidence - no_price * (1 - confidence) - POLY_FEE
-            if edge >= MIN_EDGE and confidence >= MIN_CONFIDENCE:
-                return "NO", no_price, round(confidence, 3), f"Value NO@{no_price:.3f} mid-range vol=${vol:,.0f}"
+        # Cases 3 & 4: Mid-range (0.28-0.72) — DISABLED based on performance data.
+        # Last 10 trades: every mid-range play was a loss. Only underdogs (<0.25) are profitable.
+        # Re-enable once rolling WR >= 65% and we have 30+ mid-range samples.
+        # elif 0.28 <= yes <= 0.42 ...  PAUSED
+        # elif 0.58 <= yes <= 0.72 ...  PAUSED
 
         # Case 5 (BOND): Near-certainty bet — YES ≥ 0.92 or NO ≤ 0.08
         # High-probability end-state bets: market is near resolution, collect the spread

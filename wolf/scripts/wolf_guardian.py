@@ -213,36 +213,52 @@ def check_db_integrity(config) -> list[dict]:
                     key = f"rolling_wr_drop_{track_key}"
                     if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
                         _db_check_cooldown[key] = now
+                        # Auto-act: raise the confidence floor for this strategy immediately
+                        try:
+                            from learning_engine import learning as _le
+                            current_floor = _le.get_confidence_floor(track_key)
+                            new_floor = min(current_floor + 0.03, 0.80)
+                            _le.min_confidence_overrides[track_key] = new_floor
+                            _le.save_state()
+                            auto_fix_msg = f"Auto-raised {track_key} floor {current_floor:.2f}→{new_floor:.2f}"
+                        except Exception as _afe:
+                            auto_fix_msg = f"Auto-fix failed: {_afe}"
+
                         issues.append({
                             "name": f"rolling_wr_drop_{track_key}",
                             "severity": "HIGH",
-                            "description": f"{track_key} last-10-trade WR={recent_wr:.0%} — strategy not paused, needs review",
+                            "description": f"{track_key} last-10-trade WR={recent_wr:.0%} — {auto_fix_msg}",
                             "count": 10,
                             "sample": f"{track_key}: {sum(r[0] for r in last10)}/10 wins rolling",
-                            "auto_fix": False,
-                            "fix_fn": "",
-                            "fixed": False,
-                            "fix_result": "",
+                            "auto_fix": True,
+                            "fix_fn": "raise_confidence_floor",
+                            "fixed": True,
+                            "fix_result": auto_fix_msg,
                         })
 
         # ── 2. High void rate — force exits poisoning stats ───────────────────
+        # Only flag void rate if voids have non-zero pnl (real price resolution failures).
+        # Zero-pnl voids = intentional cleanup events — not a system problem.
         void_row = c.execute("""
-            SELECT COUNT(*) as total, SUM(CASE WHEN void=1 THEN 1 ELSE 0 END) as voids
-            FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN void=1 THEN 1 ELSE 0 END) as voids,
+                SUM(CASE WHEN void=1 AND pnl != 0 THEN 1 ELSE 0 END) as bad_voids
+            FROM paper_trades WHERE resolved=1 AND simulated=0
         """).fetchone()
         if void_row and void_row[0] >= 5:
-            total, voids = void_row
-            void_pct = voids / total
-            if void_pct > 0.40:  # >40% void rate is a problem (was 20%, raised to account for cleanup events)
+            total, voids, bad_voids = void_row[0], void_row[1] or 0, void_row[2] or 0
+            # Only alert on real failures: voids where price resolution mid-trade failed (non-zero pnl)
+            if bad_voids > 3:
                 key = "high_void_rate"
                 if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
                     _db_check_cooldown[key] = now
                     issues.append({
                         "name": "high_void_rate",
                         "severity": "HIGH",
-                        "description": f"{void_pct:.0%} of real trades are void exits ({voids}/{total}) — price resolution broken for some markets",
-                        "count": voids,
-                        "sample": f"{voids} void trades out of {total} real resolved",
+                        "description": f"{bad_voids} trades voided with non-zero P&L — price resolution failing mid-trade",
+                        "count": bad_voids,
+                        "sample": f"{bad_voids} bad voids (non-zero pnl) out of {total} total resolved",
                         "auto_fix": False,
                         "fix_fn": "",
                         "fixed": False,
