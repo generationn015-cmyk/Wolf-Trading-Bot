@@ -1,0 +1,30 @@
+{
+  "total_trades": 63,
+  "strategies": {
+    "value_bet": {
+      "total": 47,
+      "won": 5,
+      "pnl": 479.61,
+      "open": 30
+    },
+    "pair_trading": {
+      "total": 7,
+      "won": 0,
+      "pnl": 0,
+      "open": 7
+    },
+    "market_making": {
+      "total": 8,
+      "won": 4,
+      "pnl": 98.49,
+      "open": 2
+    },
+    "copy_trading": {
+      "total": 1,
+      "won": 1,
+      "pnl": 1.96,
+      "open": 0
+    }
+  },
+  "snapshot_time": 1775073528.7370145
+}

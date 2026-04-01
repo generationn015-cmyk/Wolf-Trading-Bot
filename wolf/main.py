@@ -213,7 +213,7 @@ async def main():
         _conn = _sqlite3.connect(config.DB_PATH)
         _rows = _conn.execute(
             "SELECT strategy, venue, market_id, side, size, entry_price, timestamp "
-            "FROM paper_trades WHERE resolved=0 AND simulated=0"
+            "FROM paper_trades WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0"
         ).fetchall()
         for _r in _rows:
             _tr = _TR(strategy=_r[0], market_id=_r[2],
