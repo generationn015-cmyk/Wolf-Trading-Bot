@@ -9,7 +9,7 @@ import config as _cfg
 conn = sqlite3.connect(_cfg.DB_PATH)
 c = conn.cursor()
 
-REAL = "resolved=1 AND simulated=0"
+REAL = "resolved=1 AND simulated=0 AND COALESCE(void,0)=0"
 
 c.execute(f'SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE {REAL}')
 total, wins, pnl = c.fetchone()
@@ -18,7 +18,7 @@ wr = wins/total if total else 0
 _starting = getattr(_cfg, 'PAPER_STARTING_CAPITAL', 100.0)
 balance = _starting + pnl
 
-c.execute(f"SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0")
+c.execute(f"SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0")
 open_t = c.fetchone()[0]
 
 c.execute(f'SELECT strategy, COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), ROUND(SUM(pnl),2) FROM paper_trades WHERE {REAL} GROUP BY strategy ORDER BY SUM(pnl) DESC')

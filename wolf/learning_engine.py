@@ -156,7 +156,7 @@ class LearningEngine:
                 loss_rows = conn.execute("""
                     SELECT entry_price, COUNT(*) as cnt,
                            SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins
-                    FROM paper_trades WHERE resolved=1 AND simulated=0
+                    FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
                     GROUP BY ROUND(entry_price, 1)
                     HAVING cnt >= 30  -- minimum 30 trades per bucket before flagging (need statistical significance)
                 """).fetchall()
@@ -180,7 +180,7 @@ class LearningEngine:
                     SELECT reason, COUNT(*) as total,
                            SUM(CASE WHEN won=1 THEN 1 ELSE 0 END) as wins
                     FROM paper_trades
-                    WHERE resolved=1 AND simulated=0 AND strategy='copy_trading' AND reason IS NOT NULL
+                    WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0 AND strategy='copy_trading' AND reason IS NOT NULL
                     GROUP BY reason
                     HAVING total >= 3
                 """).fetchall()
@@ -199,7 +199,7 @@ class LearningEngine:
                 # ── 4. Summarize current learned state ────────────────────────
                 total_row = conn.execute(
                     "SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END), SUM(pnl) "
-                    "FROM paper_trades WHERE resolved=1 AND simulated=0"
+                    "FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0"
                 ).fetchone()
                 total_trades, total_wins, total_pnl = total_row
                 overall_wr = total_wins / total_trades if total_trades else 0

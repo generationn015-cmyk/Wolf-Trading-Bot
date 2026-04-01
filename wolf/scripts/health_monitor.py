@@ -52,7 +52,7 @@ def get_trade_count():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT COUNT(*) FROM paper_trades WHERE resolved=1')
+        c.execute('SELECT COUNT(*) FROM paper_trades WHERE resolved=1 AND COALESCE(void,0)=0')
         n = c.fetchone()[0]
         conn.close()
         return n

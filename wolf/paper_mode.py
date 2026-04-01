@@ -52,7 +52,7 @@ class PaperTrader:
                 rows = conn.execute(
                     "SELECT strategy, venue, market_id, side, size, entry_price, "
                     "exit_price, pnl, resolved, won, timestamp, COALESCE(void,0) FROM paper_trades "
-                    "WHERE resolved=1 AND simulated=0 ORDER BY timestamp ASC"
+                    "WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0 ORDER BY timestamp ASC"
                 ).fetchall()
                 for row in rows:
                     t = PaperTrade(

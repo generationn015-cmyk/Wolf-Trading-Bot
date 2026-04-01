@@ -100,7 +100,7 @@ def push_to_dashboard(force: bool = False) -> bool:
         win_rate  = round((wins / total_t * 100) if total_t else 0, 1)
 
         open_pos = c.execute(
-            "SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0"
+            "SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0"
         ).fetchone()[0]
         mode = "PAPER" if config.PAPER_MODE else "LIVE"
 

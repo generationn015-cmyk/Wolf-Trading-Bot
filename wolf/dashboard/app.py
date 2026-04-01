@@ -83,7 +83,7 @@ def fetch_stats():
     # Overall
     c.execute('''SELECT COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END),
                  ROUND(SUM(pnl),2), ROUND(AVG(confidence),3)
-                 FROM paper_trades WHERE resolved=1 AND simulated=0''')
+                 FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0''')
     total, wins, pnl, avg_conf = c.fetchone()
     total = total or 0; wins = wins or 0; pnl = pnl or 0.0
     wr = round(wins / total * 100, 1) if total else 0
@@ -94,7 +94,7 @@ def fetch_stats():
                         ELSE strategy END as display_name,
                    COUNT(*), SUM(CASE WHEN won=1 THEN 1 ELSE 0 END),
                    ROUND(SUM(pnl),2), ROUND(AVG(confidence),3)
-                 FROM paper_trades WHERE resolved=1 AND simulated=0
+                 FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
                  GROUP BY display_name ORDER BY SUM(pnl) DESC''')
     strats = []
     for row in c.fetchall():
@@ -135,7 +135,7 @@ def fetch_stats():
     # P&L curve (hourly buckets)
     c.execute('''SELECT CAST(timestamp/3600 AS INT)*3600 as bucket,
                  ROUND(SUM(pnl),2), COUNT(*)
-                 FROM paper_trades WHERE resolved=1 AND simulated=0
+                 FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
                  GROUP BY bucket ORDER BY bucket''')
     curve_raw = c.fetchall()
     running = config.PAPER_STARTING_CAPITAL
@@ -147,7 +147,7 @@ def fetch_stats():
     # Recent trades
     c.execute('''SELECT strategy, side, entry_price, exit_price, pnl, won,
                  confidence, timestamp
-                 FROM paper_trades WHERE resolved=1 AND simulated=0
+                 FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
                  ORDER BY timestamp DESC LIMIT 20''')
     recent = []
     for row in c.fetchall():
@@ -170,7 +170,7 @@ def fetch_stats():
             pass
 
     # Best/worst
-    c.execute('SELECT MAX(pnl), MIN(pnl) FROM paper_trades WHERE resolved=1 AND simulated=0')
+    c.execute('SELECT MAX(pnl), MIN(pnl) FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0')
     best, worst = c.fetchone()
 
     # Health

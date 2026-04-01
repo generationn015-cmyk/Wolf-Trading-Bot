@@ -228,7 +228,7 @@ def check_db_integrity(config) -> list[dict]:
         # ── 2. High void rate — force exits poisoning stats ───────────────────
         void_row = c.execute("""
             SELECT COUNT(*) as total, SUM(CASE WHEN void=1 THEN 1 ELSE 0 END) as voids
-            FROM paper_trades WHERE resolved=1 AND simulated=0
+            FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
         """).fetchone()
         if void_row and void_row[0] >= 5:
             total, voids = void_row
@@ -297,7 +297,7 @@ def check_db_integrity(config) -> list[dict]:
 
         # ── 3c. No new resolved trades in 24h ────────────────────────────────
         last_resolved = c.execute("""
-            SELECT MAX(timestamp) FROM paper_trades WHERE resolved=1 AND simulated=0
+            SELECT MAX(timestamp) FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0
         """).fetchone()[0] or 0
         if last_resolved > 0 and (now - last_resolved) > 86400:
             key = "no_new_trades_24h"
@@ -318,7 +318,7 @@ def check_db_integrity(config) -> list[dict]:
 
         # ── 4. Balance sanity check — detect runaway PnL ─────────────────────
         pnl_row = c.execute(
-            "SELECT ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1 AND simulated=0"
+            "SELECT ROUND(SUM(pnl),2) FROM paper_trades WHERE resolved=1 AND simulated=0 AND COALESCE(void,0)=0"
         ).fetchone()
         if pnl_row and pnl_row[0] is not None:
             real_pnl = pnl_row[0]
