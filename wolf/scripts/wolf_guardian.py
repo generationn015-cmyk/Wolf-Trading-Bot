@@ -116,6 +116,26 @@ _last_scan_pos: int = 0          # byte offset in wolf.log
 _scan_interval: int = 300        # seconds between scans
 _alert_cooldown: dict = {}       # error_name → last alert unix time
 _alert_cooldown_secs: int = 1800 # don't re-alert same error within 30 min
+
+# Load persisted cooldown state so restarts don't re-trigger recent alerts
+try:
+    import json as _json, os as _osa
+    _cd_path = _osa.path.join(_osa.path.dirname(_osa.path.dirname(_osa.path.abspath(__file__))), ".guardian_cooldown.json")
+    if _osa.path.exists(_cd_path):
+        _stored = _json.load(open(_cd_path))
+        import time as _t
+        # Only keep entries that are still within cooldown window
+        _alert_cooldown = {k: v for k, v in _stored.items() if _t.time() - v < _alert_cooldown_secs}
+except Exception:
+    pass
+
+def _persist_cooldown():
+    try:
+        import json as _json, os as _osa
+        _cd_path = _osa.path.join(_osa.path.dirname(_osa.path.dirname(_osa.path.abspath(__file__))), ".guardian_cooldown.json")
+        _json.dump(_alert_cooldown, open(_cd_path, "w"))
+    except Exception:
+        pass
 _scan_count: int = 0
 _errors_found: list = []          # last scan results
 _last_scan_ts: float = 0.0       # epoch of last scan
@@ -137,8 +157,6 @@ def _fix_price_lookup_fail(match_text: str, config) -> str:
 
 # ── DB Integrity Check ────────────────────────────────────────────────────────
 
-_db_check_cooldown: dict = {}
-_DB_CHECK_INTERVAL = 1800  # 30 min between same DB alert
 
 def check_db_integrity(config) -> list[dict]:
     """
@@ -177,8 +195,8 @@ def check_db_integrity(config) -> list[dict]:
             wr = (w or 0) / t
             if wr < 0.15 and strat not in _paused_strats:
                 key = f"zero_wr_{strat}"
-                if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
-                    _db_check_cooldown[key] = now
+                if now - _alert_cooldown.get(key, 0) > _alert_cooldown_secs:
+                    _alert_cooldown[key] = now
                     issues.append({
                         "name": f"zero_wr_{strat}",
                         "severity": "HIGH",
@@ -211,8 +229,8 @@ def check_db_integrity(config) -> list[dict]:
                         continue
 
                     key = f"rolling_wr_drop_{track_key}"
-                    if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
-                        _db_check_cooldown[key] = now
+                    if now - _alert_cooldown.get(key, 0) > _alert_cooldown_secs:
+                        _alert_cooldown[key] = now
                         # Auto-act: raise the confidence floor for this strategy immediately
                         try:
                             from learning_engine import learning as _le
@@ -251,8 +269,8 @@ def check_db_integrity(config) -> list[dict]:
             # Only alert on real failures: voids where price resolution mid-trade failed (non-zero pnl)
             if bad_voids > 3:
                 key = "high_void_rate"
-                if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
-                    _db_check_cooldown[key] = now
+                if now - _alert_cooldown.get(key, 0) > _alert_cooldown_secs:
+                    _alert_cooldown[key] = now
                     issues.append({
                         "name": "high_void_rate",
                         "severity": "HIGH",
@@ -276,8 +294,8 @@ def check_db_integrity(config) -> list[dict]:
             real_t, sim_t = sim_row[0] or 0, sim_row[1] or 0
             if sim_t > 0 and real_t < 20:
                 key = "simulated_data_dominant"
-                if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
-                    _db_check_cooldown[key] = now
+                if now - _alert_cooldown.get(key, 0) > _alert_cooldown_secs:
+                    _alert_cooldown[key] = now
                     issues.append({
                         "name": "simulated_data_dominant",
                         "severity": "HIGH",
@@ -297,8 +315,8 @@ def check_db_integrity(config) -> list[dict]:
         """, (now - 18*3600,)).fetchall()
         if stale:
             key = "open_positions_stale"
-            if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
-                _db_check_cooldown[key] = now
+            if now - _alert_cooldown.get(key, 0) > _alert_cooldown_secs:
+                _alert_cooldown[key] = now
                 issues.append({
                     "name": "open_positions_stale",
                     "severity": "HIGH",
@@ -317,8 +335,8 @@ def check_db_integrity(config) -> list[dict]:
         """).fetchone()[0] or 0
         if last_resolved > 0 and (now - last_resolved) > 86400:
             key = "no_new_trades_24h"
-            if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
-                _db_check_cooldown[key] = now
+            if now - _alert_cooldown.get(key, 0) > _alert_cooldown_secs:
+                _alert_cooldown[key] = now
                 hours = (now - last_resolved) / 3600
                 issues.append({
                     "name": "no_new_trades_24h",
@@ -342,8 +360,8 @@ def check_db_integrity(config) -> list[dict]:
             balance = starting + real_pnl
             if balance > starting * 20:  # 20x starting capital is suspicious
                 key = "runaway_balance"
-                if now - _db_check_cooldown.get(key, 0) > _DB_CHECK_INTERVAL:
-                    _db_check_cooldown[key] = now
+                if now - _alert_cooldown.get(key, 0) > _alert_cooldown_secs:
+                    _alert_cooldown[key] = now
                     issues.append({
                         "name": "runaway_balance",
                         "severity": "CRITICAL",
@@ -500,6 +518,11 @@ def guardian_loop(log_path: str, config) -> None:
                     from alerts.telegram_alerts import send_alert
                     msg = _build_alert_text(alertable, config)
                     send_alert(msg, level="WARNING", system=True)
+                    # Mark all alerted errors in cooldown and persist so restarts don't re-alert
+                    _now_cd = __import__('time').time()
+                    for _e in alertable:
+                        _alert_cooldown[_e["name"]] = _now_cd
+                    _persist_cooldown()
                     logger.info(f"[GUARDIAN] Alerted on {len(alertable)} error(s)")
                 except Exception as ae:
                     logger.warning(f"[GUARDIAN] Alert send failed: {ae}")

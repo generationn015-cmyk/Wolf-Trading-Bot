@@ -128,12 +128,18 @@ class HealthCheck:
                 logger.info(f"Feed recovered: {feed}")
             self._feed_state[feed] = is_ok
 
+        import config as _hc_cfg
+        _p = stats['paper']
+        _bal = _hc_cfg.PAPER_STARTING_CAPITAL + _p['pnl']
+        _mode = "PAPER" if _hc_cfg.PAPER_MODE else "LIVE"
         status_msg = (
-            f"Heartbeat OK\n"
+            f"🐺 Wolf Heartbeat — {_mode}\n"
+            f"─────────────────────\n"
+            f"📊 Trades: {_p['total']} | WR: {_p['win_rate']:.1%}\n"
+            f"💰 P&L: ${_p['pnl']:+.2f} | Balance: ${_bal:,.2f}\n"
+            f"📡 Poly: {'✅' if results.get('polymarket_ok') else '❌'} | "
             f"Binance: {'✅' if results.get('binance_ok') else '❌'} | "
-            f"Polymarket: {'✅' if results.get('polymarket_ok') else '❌'} | "
-            f"Kalshi: {'✅' if results.get('kalshi_ok') else '❌'}\n"
-            f"Paper trades: {stats['paper']['total']} | Win rate: {stats['paper']['win_rate']:.1%}"
+            f"Kalshi: {'✅' if results.get('kalshi_ok') else '❌'}"
         )
         send_alert(status_msg, "INFO", system=True)
         logger.info(f"Health check complete: {results}")

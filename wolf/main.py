@@ -257,11 +257,19 @@ async def main():
         _conn.close()
         _wr = _wins/_total*100 if _total else 0
         _bal = config.PAPER_STARTING_CAPITAL + _pnl
+        _strat_floors = ""
+        try:
+            from learning_engine import learning as _le
+            _floors = _le.min_confidence_overrides
+            if _floors:
+                _strat_floors = " | Floors: " + ", ".join(f"{k}={v:.2f}" for k,v in _floors.items())
+        except Exception:
+            pass
         _startup_msg = (f"🐺 Wolf Online — {mode}\n"
                         f"─────────────────────\n"
-                        f"📊 Trades: {_total} | WR: {_wr:.1f}%\n"
+                        f"📊 Trades: {_total} | WR: {_wr:.1f}% | Open: {_open}\n"
                         f"💰 P&L: ${_pnl:+.2f} | Balance: ${_bal:,.2f}\n"
-                        f"📈 Started: $100 | Open: {_open}")
+                        f"📈 Start: ${config.PAPER_STARTING_CAPITAL:,.0f}{_strat_floors}")
     except Exception:
         _startup_msg = f"🐺 Wolf Online — {mode} mode"
     send_alert(_startup_msg, "INFO", system=True)
@@ -313,21 +321,7 @@ async def main():
     except Exception as _ge:
         logger.warning(f"Guardian failed to start (non-fatal): {_ge}")
 
-    send_alert(
-        f"🐺 Wolf online — {mode}\n"
-        f"9 strategies active:\n"
-        f"  1. Value Bet (underdog + mid-range)\n"
-        f"  2. BTC Scalper (LateStage/Breakout/FlashCrash)\n"
-        f"  3. Copy Trading (top 20 Polymarket wallets)\n"
-        f"  4. Market Making\n"
-        f"  5. Near Expiry (<2h, $0.94–$0.99)\n"
-        f"  6. Latency Arb (9–16s, 0.11% BTC)\n"
-        f"  7. Complement Arb (YES+NO < $0.95)\n"
-        f"  8. Timezone Arb (global RSS, 2–9AM ET)\n"
-        f"  9. Cross-Platform Arb (Poly ↔ Kalshi, disabled until Kalshi live)\n"
-        f"Paper until Jefe authorizes live.",
-        "INFO", system=True
-    )
+    # (single startup notification already sent above with live DB stats)
 
     # ─── Main Trading Loop ────────────────────────────────────────────────────
     SCAN_INTERVAL    = 5     # seconds between strategy scans

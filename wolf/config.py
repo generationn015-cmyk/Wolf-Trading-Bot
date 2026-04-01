@@ -79,7 +79,7 @@ PAPER_GATE_MIN_TRADES       = int(os.getenv("PAPER_GATE_MIN_TRADES", "100"))  # 
 PAPER_GATE_MIN_WIN_RATE     = float(os.getenv("PAPER_GATE_MIN_WIN_RATE", "0.72"))  # Real target: 85–95%
 
 # ─── HEALTH CHECK ────────────────────────────────────────────────────────────
-HEARTBEAT_INTERVAL_SEC      = int(os.getenv("HEARTBEAT_INTERVAL_SEC", "1800"))  # 30 min
+HEARTBEAT_INTERVAL_SEC      = int(os.getenv("HEARTBEAT_INTERVAL_SEC", "21600"))  # 6 hours
 
 # ─── DATABASE ────────────────────────────────────────────────────────────────
 DB_PATH                     = os.getenv("WOLF_DB_PATH", "/data/.openclaw/workspace/wolf/wolf_data.db")
