@@ -79,6 +79,8 @@ def send_alert(message: str, level: str = "INFO", system: bool = False) -> bool:
 
 def alert_trade_entry(strategy, market, side, size, entry_price, confidence, paper=False, days_to_expiry=None):
     """Minimal entry alert — strategy, side, expiry."""
+    if paper:
+        return  # silent in paper mode — no entry notifications
     key = f"entry:{strategy}:{market[:35]}:{side}"
     if not _rate_ok(key):
         return
@@ -94,6 +96,8 @@ def alert_trade_entry(strategy, market, side, size, entry_price, confidence, pap
 
 def alert_trade_exit(strategy, market, side, entry_price, exit_price, pnl, won, hold_time_min, paper=False):
     """Minimal exit — strategy, result, PnL."""
+    if paper:
+        return  # silent in paper mode — no exit notifications
     icon = "✅" if won else "❌"
     pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
     strat = strategy.replace("_", " ").title()

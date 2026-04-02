@@ -262,6 +262,8 @@ class PairTrader:
                             "confidence": 0.80,  # Not yet guaranteed — waiting for second leg
                             "size": min(MAX_POSITION_SIZE, config.PAPER_STARTING_CAPITAL * 0.03),
                             "reason": f"Gabagool pair leg 1: YES@{yes_price:.3f}, waiting for NO≤{COMPLETION_THRESHOLD}",
+                            "days_to_expiry": max(0.0, (end_epoch - now) / 86400) if end_epoch > 0 else 0,
+                            "market_end": end_epoch,
                         })
 
         if signals:
