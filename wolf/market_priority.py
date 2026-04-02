@@ -107,110 +107,115 @@ def fetch_prioritized_markets(
     if cache_key in _market_caches and now - _cache_timestamps.get(cache_key, 0) < CACHE_TTL:
         return _market_caches.get(cache_key, [])
 
-    params = {
-        "active": True,
-        "limit": limit,
-        "closed": False,
-    }
-    if min_liquidity > 0:
-        params["liquidity_num_min"] = min_liquidity
-    if custom_params:
-        params.update(custom_params)
+    from datetime import date, timedelta
+    today = date.today().isoformat()
+    far_future = (date.today() + timedelta(days=int(max_days) + 30)).isoformat()
+    week_out = (date.today() + timedelta(days=7)).isoformat()
+    month_out = (date.today() + timedelta(days=30)).isoformat()
 
-    try:
-        resp = requests.get(
-            "https://gamma-api.polymarket.com/markets",
-            params=params,
-            timeout=15,
-        )
-        if not resp.ok:
-            return _market_caches.get(cache_key, [])
+    # Fetch in date ranges to capture short-term markets the default query misses
+    raw_list = []
+    seen_ids = set()
+    queries = [
+        {"end_date_min": today, "end_date_max": week_out, "limit": 200},   # Short-term
+        {"end_date_min": week_out, "end_date_max": month_out, "limit": 200}, # Medium
+        {"limit": 200},                                                      # Default (long-dated)
+    ]
+    for params in queries:
+        params.update({"active": True, "closed": False})
+        try:
+            resp = requests.get(
+                "https://gamma-api.polymarket.com/markets",
+                params=params,
+                timeout=15,
+            )
+            if resp.ok and isinstance(resp.json(), list):
+                for m in resp.json():
+                    mid = m.get("id") or m.get("conditionId")
+                    if mid and mid not in seen_ids:
+                        seen_ids.add(mid)
+                        raw_list.append(m)
+        except Exception:
+            continue
+    raw = raw_list
 
-        raw = resp.json()
-        if not isinstance(raw, list):
-            return _market_caches.get(cache_key, [])
-
-        # ── Enrich each market with expiry data ─────────────────────────
-        enriched = []
-        for m in raw:
-            # Parse prices
-            op = m.get("outcomePrices", [])
-            if isinstance(op, str):
-                try:
-                    import json
-                    op = json.loads(op)
-                except:
-                    op = []
-            if not op or len(op) < 2:
-                continue
+    # ── Enrich each market with expiry data ─────────────────────────
+    enriched = []
+    for m in raw:
+        # Parse prices
+        op = m.get("outcomePrices", [])
+        if isinstance(op, str):
             try:
-                p0, p1 = float(op[0]), float(op[1])
-            except (ValueError, TypeError):
-                continue
+                import json
+                op = json.loads(op)
+            except:
+                op = []
+        if not op or len(op) < 2:
+            continue
+        try:
+            p0, p1 = float(op[0]), float(op[1])
+        except (ValueError, TypeError):
+            continue
 
-            # Two-sided filter
-            if require_two_sided and not (0.03 < p0 < 0.97 and 0.03 < p1 < 0.97):
-                continue
+        # Two-sided filter
+        if require_two_sided and not (0.03 < p0 < 0.97 and 0.03 < p1 < 0.97):
+            continue
 
-            # Volume filter
-            vol = float(m.get("volumeNum", 0) or 0)
-            if vol < min_volume:
-                continue
+        # Volume filter
+        vol = float(m.get("volumeNum", 0) or 0)
+        if vol < min_volume:
+            continue
 
-            # Parse expiry
-            end_raw = m.get("endDate") or m.get("endDateIso") or ""
-            end_ts = _parse_expiry(end_raw)
-            days = _days_to_expiry(end_ts)
-            priority = _expiry_priority(days)
+        # Parse expiry
+        end_raw = m.get("endDate") or m.get("endDateIso") or ""
+        end_ts = _parse_expiry(end_raw)
+        days = _days_to_expiry(end_ts)
+        priority = _expiry_priority(days)
 
-            # Max days filter
-            if days > max_days and days != 999:
-                continue
+        # Max days filter
+        if days > max_days and days != 999:
+            continue
 
-            # Skip expired markets (endDate already passed)
-            if end_ts and end_ts < time.time():
-                continue
+        # Skip expired markets (endDate already passed)
+        if end_ts and end_ts < time.time():
+            continue
 
-            # Enrich
-            m["_days_to_expiry"] = days
-            m["_expiry_priority"] = priority
-            m["_expiry_label"] = _priority_label(priority)
-            m["_end_ts"] = end_ts
-            m["_yes_price"] = p0
-            m["_no_price"] = p1
-            m["_volume"] = vol
-            m["_spread"] = abs(p0 - (1.0 - p1))
+        # Enrich
+        m["_days_to_expiry"] = days
+        m["_expiry_priority"] = priority
+        m["_expiry_label"] = _priority_label(priority)
+        m["_end_ts"] = end_ts
+        m["_yes_price"] = p0
+        m["_no_price"] = p1
+        m["_volume"] = vol
+        m["_spread"] = abs(p0 - (1.0 - p1))
 
-            enriched.append(m)
+        enriched.append(m)
 
-        # ── Sort by expiry urgency (nearest first), then by volume ──────
-        enriched.sort(key=lambda x: (
-            x["_expiry_priority"],       # Today first
-            x["_days_to_expiry"],        # Within tier, shortest first
+    # ── Sort by expiry urgency (nearest first), then by volume ──────
+    enriched.sort(key=lambda x: (
+        x["_expiry_priority"],       # Today first
+        x["_days_to_expiry"],        # Within tier, shortest first
             -x["_volume"],               # Tiebreak: highest volume
         ))
 
-        _market_caches[cache_key] = enriched
-        _cache_timestamps[cache_key] = now
-        
-        # Log distribution
-        from collections import Counter
-        dist = Counter(m["_expiry_priority"] for m in enriched)
-        logger.info(
-            f"Market priority: "
-            f"🔴TODAY={dist.get(0,0)} "
-            f"🟠TOMORROW={dist.get(1,0)} "
-            f"🟡WEEK={dist.get(2,0)} "
-            f"🟢MONTH={dist.get(3,0)} "
-            f"⚪LATER={dist.get(4,0)} "
-            f"| Total={len(enriched)}"
-        )
+    _market_caches[cache_key] = enriched
+    _cache_timestamps[cache_key] = now
+    
+    # Log distribution
+    from collections import Counter
+    dist = Counter(m["_expiry_priority"] for m in enriched)
+    logger.info(
+        f"Market priority: "
+        f"🔴TODAY={dist.get(0,0)} "
+        f"🟠TOMORROW={dist.get(1,0)} "
+        f"🟡WEEK={dist.get(2,0)} "
+        f"🟢MONTH={dist.get(3,0)} "
+        f"⚪LATER={dist.get(4,0)} "
+        f"| Total={len(enriched)}"
+    )
 
-        return enriched
-
-    except Exception as e:
-        logger.warning(f"Market fetch error: {e}")
-        return _market_caches.get(cache_key, [])
+    return enriched
 
 
 def get_expiry_summary(markets: list[dict]) -> str:
@@ -218,9 +223,9 @@ def get_expiry_summary(markets: list[dict]) -> str:
     from collections import Counter
     dist = Counter(m.get("_expiry_priority", 4) for m in markets)
     return (
-        f"🔴 TODAY={dist.get(0,0)} "
-        f"🟠 TOMORROW={dist.get(1,0)} "
-        f"🟡 WEEK={dist.get(2,0)} "
-        f"🟢 MONTH={dist.get(3,0)} "
-        f"⚪ LATER={dist.get(4,0)}"
+    f"🔴 TODAY={dist.get(0,0)} "
+    f"🟠 TOMORROW={dist.get(1,0)} "
+    f"🟡 WEEK={dist.get(2,0)} "
+    f"🟢 MONTH={dist.get(3,0)} "
+    f"⚪ LATER={dist.get(4,0)}"
     )
