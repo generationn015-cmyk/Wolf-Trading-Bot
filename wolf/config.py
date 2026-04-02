@@ -59,11 +59,11 @@ MIN_POSITION_LIVE           = float(os.getenv("MIN_POSITION_LIVE", "1.0"))   # M
 DAILY_LOSS_LIMIT            = float(os.getenv("DAILY_LOSS_LIMIT", "-0.20"))  # -20% daily halt ($20 on live)
 KILL_SWITCH_THRESHOLD       = float(os.getenv("KILL_SWITCH_THRESHOLD", "-0.40"))  # -40% kill switch ($40 loss → full stop)
 MAX_OPEN_POSITIONS          = int(os.getenv("MAX_OPEN_POSITIONS", "8"))   # live hard cap
-MAX_OPEN_POSITIONS_PAPER    = int(os.getenv("MAX_OPEN_POSITIONS_PAPER", "40"))  # paper: wider net for data collection
+MAX_OPEN_POSITIONS_PAPER    = int(os.getenv("MAX_OPEN_POSITIONS_PAPER", "20"))  # paper: wider net for data collection
 VALUE_BET_MAX_DAYS          = int(os.getenv("VALUE_BET_MAX_DAYS", "14"))  # Skip markets resolving >14 days out
 MAX_HOLD_HOURS              = float(os.getenv("MAX_HOLD_HOURS", "48"))     # Force-exit after 48h — gives prediction markets time to resolve naturally
 MAX_POSITIONS_PER_STRATEGY  = int(os.getenv("MAX_POSITIONS_PER_STRATEGY", "8"))   # 8 per strategy allows active trading across all strategies
-MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "50000")) # $50K min liquidity
+MIN_MARKET_VOLUME           = float(os.getenv("MIN_MARKET_VOLUME", "1000")) # $1K min liquidity
 
 # ─── STRATEGY PARAMETERS ─────────────────────────────────────────────────────
 LATENCY_ARB_THRESHOLD       = float(os.getenv("LATENCY_ARB_THRESHOLD", "0.003"))  # 0.3% divergence

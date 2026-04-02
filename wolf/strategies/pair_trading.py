@@ -36,7 +36,7 @@ ENTRY_THRESHOLD     = 0.495  # Buy a side when price ≤ this (Blueprint: < 0.49
 COMPLETION_THRESHOLD = 0.495 # Complete pair when second side ≤ this (Blueprint)
 MAX_PAIR_COST        = 0.97  # Reject if combined cost would exceed this (no guaranteed profit)
 MIN_EDGE             = 0.03  # Minimum guaranteed profit margin
-MAX_POSITION_SIZE    = 100   # $100 max per leg in paper mode
+MAX_POSITION_SIZE    = 15   # $100 max per leg in paper mode
 COOLDOWN_SEC         = 1800  # 30 min cooldown per market after a pair completes
 MAX_PENDING_PAIRS    = 6     # Max number of open "one leg filled" positions
 MIN_VOLUME           = 10_000  # $10K minimum market volume
@@ -108,7 +108,7 @@ class PairTrader:
         try:
             markets = fetch_prioritized_markets(
                 limit=60,
-                max_days=30,
+                max_days=2,
             )
             if not isinstance(markets, list):
                 return self._market_cache
@@ -221,6 +221,8 @@ class PairTrader:
                         "pair_yes_cost": pair.yes_cost,
                         "pair_no_cost": no_price,
                         "pair_combined": projected_cost,
+                        "days_to_expiry": max(0.0, (pair.expires_at - now) / 86400) if pair.expires_at > 0 else 0,
+                        "market_end": pair.expires_at,
                     })
                 continue
 

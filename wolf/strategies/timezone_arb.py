@@ -180,7 +180,7 @@ class TimezoneArb:
         try:
             markets = fetch_prioritized_markets(
                 limit=100,
-                max_days=30,
+                max_days=2,
             )
             if not isinstance(markets, list):
                 return self._market_cache

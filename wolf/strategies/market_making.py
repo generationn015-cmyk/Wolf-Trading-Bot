@@ -64,7 +64,7 @@ class MarketMaker:
                 limit=200,
                 min_liquidity=10000,
                 min_volume=0,
-                max_days=180,
+                max_days=2,
                 custom_params={"liquidity_num_min": 10000},
             )
             markets = markets_raw
@@ -262,6 +262,8 @@ class MarketMaker:
                 "vpin":        vpin,
                 "slug":        _mm_slug,
                 "timestamp":   now,
+                "days_to_expiry": _days,
+                "market_end": now + _days * 86400,
                 "reason":      (
                     f"MM {market_id[:16]}… spread={natural_spread:.3f} "
                     f"vol=${volume:,.0f} VPIN={vpin:.3f}"

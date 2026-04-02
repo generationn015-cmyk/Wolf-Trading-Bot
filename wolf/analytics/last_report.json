@@ -1,6 +1,6 @@
 {
   "period_hours": 24,
-  "generated_at": 1775096225.0757813,
+  "generated_at": 1775142618.889364,
   "overall": {
     "total_trades": 0,
     "wins": 0,
@@ -45,6 +45,13 @@
       "side": "YES",
       "pnl": 0,
       "reason": "ValueBet: Underdog YES@0.095 vol=$5,698,814 | MegaETH market cap (FDV) >$2B one "
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.23,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Underdog YES@0.230 vol=$5,413 | Will Macarthur FC vs. Newcastle United"
     }
   ],
   "wallet_performance": [],

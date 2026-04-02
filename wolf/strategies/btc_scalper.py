@@ -65,7 +65,7 @@ def _fetch_btc_markets() -> list[dict]:
         return _market_cache
 
     try:
-        markets = fetch_prioritized_markets(limit=200, max_days=30)
+        markets = fetch_prioritized_markets(limit=200, max_days=2)
         if not isinstance(markets, list):
             return _market_cache
 

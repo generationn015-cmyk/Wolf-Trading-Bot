@@ -3,7 +3,7 @@ Wolf Market Prioritization Engine
 
 Sorts markets by expiry urgency:
   Priority 0: Resolves TODAY (< 24h)
-  Priority 1: Resolves TOMORROW (24-48h)  
+  Priority 1: Resolves TOMORROW (24-48h)
   Priority 2: Resolves THIS WEEK (2-7 days)
   Priority 3: Resolves THIS MONTH (7-30 days)
   Priority 4: Resolves LATER (30+ days)
@@ -88,10 +88,10 @@ def fetch_prioritized_markets(
 ) -> list[dict]:
     """
     Fetch active markets from Gamma API, sorted by expiry urgency.
-    
+
     Markets closest to resolution appear FIRST.
     Each market gets _days_to_expiry and _expiry_priority fields added.
-    
+
     Args:
         limit: Max markets to fetch from API
         min_liquidity: Minimum liquidity filter
@@ -107,36 +107,35 @@ def fetch_prioritized_markets(
     if cache_key in _market_caches and now - _cache_timestamps.get(cache_key, 0) < CACHE_TTL:
         return _market_caches.get(cache_key, [])
 
-    from datetime import date, timedelta
-    today = date.today().isoformat()
-    far_future = (date.today() + timedelta(days=int(max_days) + 30)).isoformat()
-    week_out = (date.today() + timedelta(days=7)).isoformat()
-    month_out = (date.today() + timedelta(days=30)).isoformat()
-
-    # Fetch in date ranges to capture short-term markets the default query misses
+    # ── Fetch with pagination to find short-term markets ────────────────
     raw_list = []
     seen_ids = set()
-    queries = [
-        {"end_date_min": today, "end_date_max": week_out, "limit": 200},   # Short-term
-        {"end_date_min": week_out, "end_date_max": month_out, "limit": 200}, # Medium
-        {"limit": 200},                                                      # Default (long-dated)
-    ]
-    for params in queries:
-        params.update({"active": True, "closed": False})
+
+    for offset in [0, 500, 1000, 1500, 2000]:
+        params = {"limit": 500, "offset": offset, "active": True, "closed": False}
+        if custom_params:
+            params.update(custom_params)
         try:
             resp = requests.get(
                 "https://gamma-api.polymarket.com/markets",
                 params=params,
                 timeout=15,
             )
-            if resp.ok and isinstance(resp.json(), list):
-                for m in resp.json():
-                    mid = m.get("id") or m.get("conditionId")
-                    if mid and mid not in seen_ids:
-                        seen_ids.add(mid)
-                        raw_list.append(m)
+            if not resp.ok:
+                break
+            data = resp.json()
+            if not isinstance(data, list) or not data:
+                break
+            for m in data:
+                mid = m.get("id") or m.get("conditionId")
+                if mid and mid not in seen_ids:
+                    seen_ids.add(mid)
+                    raw_list.append(m)
+            if len(data) < 500:
+                break
         except Exception:
-            continue
+            break
+
     raw = raw_list
 
     # ── Enrich each market with expiry data ─────────────────────────
@@ -157,27 +156,27 @@ def fetch_prioritized_markets(
         except (ValueError, TypeError):
             continue
 
-        # Two-sided filter
-        if require_two_sided and not (0.03 < p0 < 0.97 and 0.03 < p1 < 0.97):
-            continue
-
-        # Volume filter
-        vol = float(m.get("volumeNum", 0) or 0)
-        if vol < min_volume:
-            continue
-
         # Parse expiry
         end_raw = m.get("endDate") or m.get("endDateIso") or ""
         end_ts = _parse_expiry(end_raw)
         days = _days_to_expiry(end_ts)
         priority = _expiry_priority(days)
 
-        # Max days filter
-        if days > max_days and days != 999:
-            continue
-
         # Skip expired markets (endDate already passed)
         if end_ts and end_ts < time.time():
+            continue
+
+        # Max days filter — skip markets with no expiry (d=999)
+        if days > max_days:
+            continue
+
+        # Two-sided filter — always require prices in valid range
+        if require_two_sided and not (0.03 < p0 < 0.97 and 0.03 < p1 < 0.97):
+            continue
+
+        # Volume filter
+        vol = float(m.get("volumeNum", 0) or 0)
+        if vol < min_volume:
             continue
 
         # Enrich
@@ -201,7 +200,7 @@ def fetch_prioritized_markets(
 
     _market_caches[cache_key] = enriched
     _cache_timestamps[cache_key] = now
-    
+
     # Log distribution
     from collections import Counter
     dist = Counter(m["_expiry_priority"] for m in enriched)

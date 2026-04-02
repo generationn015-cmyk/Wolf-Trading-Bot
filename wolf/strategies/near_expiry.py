@@ -97,7 +97,7 @@ class NearExpiryStrategy:
         if now - self._poly_ts < 120 and self._poly_cache:
             return self._poly_cache
         try:
-            markets = fetch_prioritized_markets(limit=200, max_days=30)
+            markets = fetch_prioritized_markets(limit=200, max_days=2)
             if not isinstance(markets, list):
                 return self._poly_cache
 
@@ -244,6 +244,8 @@ class NearExpiryStrategy:
                     "edge":        edge,
                     "volume":      0,
                     "timestamp":   now,
+                    "days_to_expiry": opp.seconds_remaining / 86400,
+                    "market_end": now + opp.seconds_remaining,
                     "reason": (
                         f"NearExpiry [{opp.venue}] {opp.side}@{opp.price:.3f} "
                         f"{opp.seconds_remaining/60:.0f}min remaining"

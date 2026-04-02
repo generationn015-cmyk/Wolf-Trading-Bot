@@ -165,6 +165,18 @@ class OrderManager:
         days_to_exp  = signal.get("days_to_expiry")
         market_end   = signal.get("market_end", 0.0) or 0.0
 
+        # Cross-derive: if we have one but not the other
+        if days_to_exp is None and market_end > 0:
+            days_to_exp = max(0.0, (market_end - time.time()) / 86400)
+        if market_end <= 0 and days_to_exp is not None and days_to_exp > 0:
+            market_end = time.time() + days_to_exp * 86400
+
+        # Write derived values back to signal for downstream consumers
+        if days_to_exp is not None:
+            signal["days_to_expiry"] = days_to_exp
+        if market_end > 0:
+            signal["market_end"] = market_end
+
         # ── Dedup gate ────────────────────────────────────────────────────────
         if self._is_duplicate(strategy, market_id, side):
             return {"status": "dedup_blocked", "reason": f"Executed within {EXEC_DEDUP_WINDOW}s"}
@@ -217,7 +229,9 @@ class OrderManager:
                 }
 
         # ── Risk gate ─────────────────────────────────────────────────────────
-        volume = signal.get("volume", config.MIN_MARKET_VOLUME + 1)
+        volume = signal.get("volume")
+        if not volume or volume <= 0:
+            volume = None  # Unknown volume — skip volume check
         can_trade, reason_str = self.risk.can_trade(market_volume=volume)
         if not can_trade:
             logger.info(f"Trade blocked by risk engine: {reason_str}")

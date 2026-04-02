@@ -82,7 +82,7 @@ class ValueBetStrategy:
             return self._cache
         try:
             import config as _cfg
-            max_days = 30 if _cfg.PAPER_MODE else 365
+            max_days = 2 if _cfg.PAPER_MODE else 365
 
             markets = fetch_prioritized_markets(
                 limit=500,

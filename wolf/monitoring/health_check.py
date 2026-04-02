@@ -90,6 +90,24 @@ class HealthCheck:
             results["kalshi_ok"] = False
             # Kalshi failure is non-critical in Phase 1
 
+        # Capital deployment check — alert if overdeployed
+        try:
+            import sqlite3 as _sq
+            _conn = _sq.connect(config.DB_PATH, timeout=5)
+            _deployed = _conn.execute(
+                "SELECT COALESCE(SUM(size),0) FROM paper_trades WHERE resolved=0 AND COALESCE(void,0)=0 AND simulated=0"
+            ).fetchone()[0]
+            _open = _conn.execute(
+                "SELECT COUNT(*) FROM paper_trades WHERE resolved=0 AND COALESCE(void,0)=0 AND simulated=0"
+            ).fetchone()[0]
+            _conn.close()
+            _balance = config.PAPER_STARTING_CAPITAL
+            if _deployed > _balance:
+                _send(f"🚨 OVERDEPLOYED: ${_deployed:.2f} on ${_balance:.2f} balance ({_open} positions)")
+                logger.critical(f"OVERDEPLOYED: ${_deployed:.2f} > ${_balance:.2f}")
+        except Exception:
+            pass
+
         # Log health
         stats = self.journal.get_stats()
         health_record = {
@@ -119,12 +137,8 @@ class HealthCheck:
                 )
                 logger.critical(f"FEED DOWN: {feed}")
             elif not was_ok and is_ok:
-                # Feed recovered — mark as working so future failures alert
+                # Feed recovered — log only, no Telegram spam
                 self._feed_state[feed] = True
-                _send(
-                    f"✅ <b>Feed RESTORED: {feed.upper()}</b>\n"
-                    f"Trading resuming on affected strategies."
-                )
                 logger.info(f"Feed recovered: {feed}")
             self._feed_state[feed] = is_ok
 

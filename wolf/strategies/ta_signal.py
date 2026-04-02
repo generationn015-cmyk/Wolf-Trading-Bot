@@ -228,7 +228,7 @@ class TASignalStrategy:
         if now - self._poly_ts < 90 and self._poly_cache:
             return self._poly_cache
         try:
-            markets = fetch_prioritized_markets(limit=200, max_days=30)
+            markets = fetch_prioritized_markets(limit=200, max_days=2)
             if not isinstance(markets, list):
                 return self._poly_cache
 
