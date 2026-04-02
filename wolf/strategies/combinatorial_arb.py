@@ -46,7 +46,7 @@ class CombinatorialArb:
         if now - self._cache_ts < self._cache_ttl and self._cache:
             return self._cache
         try:
-            markets = fetch_prioritized_markets(limit=200, max_days=7)
+            markets = fetch_prioritized_markets(limit=200, max_days=30)
             if not isinstance(markets, list):
                 return self._cache
             self._cache = markets

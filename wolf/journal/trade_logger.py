@@ -160,7 +160,7 @@ class TradeLogger:
                     "SELECT id, timestamp, venue, size, entry_price, confidence, edge, reason, "
                     "market_end, days_to_expiry, slug, sub_strategy, tp_price, sl_price, simulated "
                     "FROM paper_trades "
-                    "WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0 "
+                    "WHERE market_id=? AND strategy=? AND side=? AND resolved=0 AND simulated=0 AND COALESCE(void,0)=0 "
                     "ORDER BY timestamp DESC LIMIT 1",
                     (market_id, strategy, side)
                 )

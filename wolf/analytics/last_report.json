@@ -1,6 +1,6 @@
 {
-  "period_hours": 24,
-  "generated_at": 1775075185.9100566,
+  "period_hours": 168,
+  "generated_at": 1775089550.8803315,
   "overall": {
     "total_trades": 0,
     "wins": 0,
@@ -10,12 +10,77 @@
     "avg_pnl_per_trade": 0,
     "best_trade": 0,
     "worst_trade": 0,
-    "avg_confidence": 0
+    "avg_confidence": 0,
+    "sharpe": 0.0,
+    "sortino": 0.0
   },
   "by_strategy": {},
   "price_buckets": [],
   "hourly_performance": [],
   "worst_losses": [
+    {
+      "strategy": "market_making",
+      "entry_price": 0.645,
+      "side": "NO",
+      "pnl": -104.5,
+      "reason": "MM both sides \u2014 paired hedge"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.405,
+      "side": "NO",
+      "pnl": -41.98,
+      "reason": "ValueBet: Value NO@0.405 mid-range vol=$366,471 | BitBoy convicted?"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.1725,
+      "side": "YES",
+      "pnl": -21.45,
+      "reason": "ValueBet: Underdog YES@0.172 vol=$121,544 | Will Harvey Weinstein be sentenced t"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.405,
+      "side": "NO",
+      "pnl": -10.86,
+      "reason": "ValueBet: Value NO@0.405 mid-range vol=$676,848 | New Rihanna Album before GTA V"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.11,
+      "side": "YES",
+      "pnl": -9.09,
+      "reason": "ValueBet: Underdog YES@0.110 vol=$5,678,283 | MegaETH market cap (FDV) >$2B one "
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.225,
+      "side": "NO",
+      "pnl": -3.56,
+      "reason": "ValueBet: Underdog NO@0.225 (YES=0.775) vol=$341,370 | Will Italy qualify for th"
+    },
+    {
+      "strategy": "market_making",
+      "entry_price": 0.41,
+      "side": "NO",
+      "pnl": -1.95,
+      "reason": "MM both sides \u2014 paired hedge"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.375,
+      "side": "NO",
+      "pnl": 0,
+      "reason": "ValueBet: Value NO@0.375 mid-range vol=$148,138 | Will Sweden qualify for the 20"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.375,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Value YES@0.375 mid-range vol=$506,353 | Will Poland qualify for the 2"
+    },
     {
       "strategy": "value_bet",
       "entry_price": 0.282,
@@ -50,10 +115,39 @@
       "side": "YES",
       "pnl": 0,
       "reason": "ValueBet: Underdog YES@0.256 vol=$153,317 | Will Harvey Weinstein be sentenced t"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.2705,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Underdog YES@0.271 vol=$294,939 | Will Harvey Weinstein be sentenced t"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.2245,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Underdog YES@0.225 vol=$153,409 | Will Harvey Weinstein be sentenced t"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.081,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Underdog YES@0.081 vol=$51,554 | Will Harvey Weinstein be sentenced to"
+    },
+    {
+      "strategy": "value_bet",
+      "entry_price": 0.095,
+      "side": "YES",
+      "pnl": 0,
+      "reason": "ValueBet: Underdog YES@0.095 vol=$5,698,814 | MegaETH market cap (FDV) >$2B one "
     }
   ],
   "wallet_performance": [],
   "lessons": [
-    "\ud83d\udd34 Overall WR 0.0% \u2014 below target. Tighten filters."
+    "\ud83d\udd34 Overall WR 0.0% \u2014 below target. Tighten filters.",
+    "\ud83d\udd34 Portfolio Sharpe 0.00 \u2014 negative risk-adjusted return."
   ]
 }

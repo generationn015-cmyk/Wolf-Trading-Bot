@@ -150,7 +150,7 @@ def push_to_dashboard(force: bool = False) -> bool:
         # ── 3. Open positions ─────────────────────────────────────────────────
         open_rows = c.execute("""
             SELECT id, strategy, market_id, side, size, entry_price, timestamp, reason, market_end, confidence
-            FROM paper_trades WHERE resolved=0 AND simulated=0
+            FROM paper_trades WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0
             ORDER BY timestamp DESC
         """).fetchall()
         for row in open_rows:

@@ -97,7 +97,7 @@ class NearExpiryStrategy:
         if now - self._poly_ts < 120 and self._poly_cache:
             return self._poly_cache
         try:
-            markets = fetch_prioritized_markets(limit=200, max_days=7)
+            markets = fetch_prioritized_markets(limit=200, max_days=30)
             if not isinstance(markets, list):
                 return self._poly_cache
 

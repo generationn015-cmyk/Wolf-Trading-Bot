@@ -65,11 +65,7 @@ def _fetch_btc_markets() -> list[dict]:
         return _market_cache
 
     try:
-        resp = fetch_prioritized_markets(limit=200, max_days=7)
-        if not resp.ok:
-            return _market_cache
-
-        markets = resp.json()
+        markets = fetch_prioritized_markets(limit=200, max_days=30)
         if not isinstance(markets, list):
             return _market_cache
 
@@ -156,7 +152,7 @@ class BTCScalperStrategy:
         try:
             # Try shared feed first (zero extra API calls)
             from feeds.binance_feed import btc_feed
-            current = btc_feed.price
+            current = btc_feed.get_price()
             if current and current > 0:
                 # Get 15-min open price via Binance kline
                 resp = requests.get(

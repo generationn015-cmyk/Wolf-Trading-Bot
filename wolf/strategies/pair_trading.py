@@ -89,10 +89,10 @@ class PairTrader:
                 return
             conn = sqlite3.connect(db_path, timeout=3)
             rows = conn.execute(
-                "SELECT market_id, entry_price, volume, reason "
-                "FROM paper_trades WHERE strategy='pair_trading' AND side='YES' AND resolved=0"
+                "SELECT market_id, entry_price, reason "
+                "FROM paper_trades WHERE strategy='pair_trading' AND side='YES' AND resolved=0 AND COALESCE(void,0)=0"
             ).fetchall()
-            for mid, entry, vol, reason in rows:
+            for mid, entry, reason in rows:
                 self._pending[mid] = PendingPair(market_id=mid, question=reason or "pair leg 1",
                                                   yes_cost=entry, yes_filled=True)
             conn.close()
@@ -108,7 +108,7 @@ class PairTrader:
         try:
             markets = fetch_prioritized_markets(
                 limit=60,
-                max_days=7,
+                max_days=30,
             )
             if not isinstance(markets, list):
                 return self._market_cache

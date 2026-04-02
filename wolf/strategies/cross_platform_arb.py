@@ -72,10 +72,7 @@ class CrossPlatformArb:
         if now - self._poly_ts < 180 and self._poly_cache:
             return self._poly_cache
         try:
-            resp = fetch_prioritized_markets(limit=200, max_days=7)
-            if not resp.ok:
-                return self._poly_cache
-            markets = resp.json()
+            markets = fetch_prioritized_markets(limit=200, max_days=30)
             if not isinstance(markets, list):
                 return self._poly_cache
 

@@ -27,9 +27,9 @@ PRIORITY_WEEK     = 2   # 2-7 days
 PRIORITY_MONTH    = 3   # 7-30 days
 PRIORITY_LATER    = 4   # 30+ days — LOWEST URGENCY
 
-# ── Cache ───────────────────────────────────────────────────────────────
-_market_cache: list[dict] = []
-_cache_ts: float = 0.0
+# ── Cache (keyed by max_days to prevent cross-contamination) ───────────
+_market_caches: dict[float, list[dict]] = {}
+_cache_timestamps: dict[float, float] = {}
 CACHE_TTL = 30  # seconds — refresh frequently for freshness
 
 
@@ -100,18 +100,17 @@ def fetch_prioritized_markets(
         require_two_sided: Only include markets with prices on both YES and NO
         custom_params: Additional Gamma API parameters to merge
     """
-    global _market_cache, _cache_ts
+    global _market_caches, _cache_timestamps
 
+    cache_key = max_days
     now = time.time()
-    if now - _cache_ts < CACHE_TTL and _market_cache:
-        return _market_cache
+    if cache_key in _market_caches and now - _cache_timestamps.get(cache_key, 0) < CACHE_TTL:
+        return _market_caches.get(cache_key, [])
 
     params = {
         "active": True,
         "limit": limit,
         "closed": False,
-        "order": "endDate",
-        "ascending": True,  # Nearest expiry first from API
     }
     if min_liquidity > 0:
         params["liquidity_num_min"] = min_liquidity
@@ -125,11 +124,11 @@ def fetch_prioritized_markets(
             timeout=15,
         )
         if not resp.ok:
-            return _market_cache
+            return _market_caches.get(cache_key, [])
 
         raw = resp.json()
         if not isinstance(raw, list):
-            return _market_cache
+            return _market_caches.get(cache_key, [])
 
         # ── Enrich each market with expiry data ─────────────────────────
         enriched = []
@@ -168,6 +167,10 @@ def fetch_prioritized_markets(
             if days > max_days and days != 999:
                 continue
 
+            # Skip expired markets (endDate already passed)
+            if end_ts and end_ts < time.time():
+                continue
+
             # Enrich
             m["_days_to_expiry"] = days
             m["_expiry_priority"] = priority
@@ -187,8 +190,8 @@ def fetch_prioritized_markets(
             -x["_volume"],               # Tiebreak: highest volume
         ))
 
-        _market_cache = enriched
-        _cache_ts = now
+        _market_caches[cache_key] = enriched
+        _cache_timestamps[cache_key] = now
         
         # Log distribution
         from collections import Counter
@@ -207,7 +210,7 @@ def fetch_prioritized_markets(
 
     except Exception as e:
         logger.warning(f"Market fetch error: {e}")
-        return _market_cache
+        return _market_caches.get(cache_key, [])
 
 
 def get_expiry_summary(markets: list[dict]) -> str:

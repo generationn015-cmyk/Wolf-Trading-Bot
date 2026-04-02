@@ -82,7 +82,7 @@ class ValueBetStrategy:
             return self._cache
         try:
             import config as _cfg
-            max_days = 7 if _cfg.PAPER_MODE else 365
+            max_days = 30 if _cfg.PAPER_MODE else 365
 
             markets = fetch_prioritized_markets(
                 limit=500,
@@ -216,9 +216,8 @@ class ValueBetStrategy:
                     "edge":        round((1.0 - entry) * confidence - entry * (1 - confidence) - POLY_FEE, 3),
                     "volume":      vol,
                     "days_to_expiry": market.get("_days_to_expiry", 0),
-                    "market_end": market.get("_market_end_ts", 0),
+                    "market_end": market.get("_end_ts", 0),
                     "timestamp":   now,
-                    "days_to_expiry": market.get("_days_to_expiry", 999),
                     "slug":        _vb_slug,
                     "reason":      f"ValueBet: {reason} | {q[:40]}",
                 })

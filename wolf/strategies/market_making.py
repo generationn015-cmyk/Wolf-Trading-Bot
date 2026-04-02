@@ -162,7 +162,7 @@ class MarketMaker:
             conn = sqlite3.connect(config.DB_PATH)
             rows = conn.execute(
                 "SELECT market_id, side FROM paper_trades "
-                "WHERE resolved=0 AND simulated=0 AND strategy='market_making'"
+                "WHERE resolved=0 AND simulated=0 AND COALESCE(void,0)=0 AND strategy='market_making'"
             ).fetchall()
             conn.close()
             for market_id, side in rows:
