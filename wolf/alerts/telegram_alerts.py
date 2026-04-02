@@ -77,30 +77,27 @@ def send_alert(message: str, level: str = "INFO", system: bool = False) -> bool:
     return _send(f"🐺 <b>Wolf</b>\n{message}")
 
 
-def alert_trade_entry(strategy, market, side, size, entry_price, confidence, paper=False):
-    """Compact trade entry — one message, essential info only."""
+def alert_trade_entry(strategy, market, side, size, entry_price, confidence, paper=False, days_to_expiry=None):
+    """Minimal entry alert — strategy, side, expiry."""
     key = f"entry:{strategy}:{market[:35]}:{side}"
     if not _rate_ok(key):
         return
-    mode = "🟡 PAPER" if paper else "🔴 LIVE"
-    short = market[:50] + "…" if len(market) > 50 else market
     strat = strategy.replace("_", " ").title()
-    text = (f"{mode}  <b>{strat}</b>  {side} @ {entry_price:.3f}  ${size:.2f}\n"
-            f"<i>{short}</i>")
-    _send(text)
+    if days_to_expiry is not None:
+        if days_to_expiry < 1:
+            exp = f"{int(days_to_expiry * 24)}h"
+        else:
+            exp = f"{days_to_expiry:.1f}d"
+    else:
+        exp = "?"
+    _send(f"🔵 {strat} {side} {exp}")
 
 def alert_trade_exit(strategy, market, side, entry_price, exit_price, pnl, won, hold_time_min, paper=False):
-    """Compact trade exit — result + PnL only."""
+    """Minimal exit — strategy, result, PnL."""
     icon = "✅" if won else "❌"
-    word = "WIN" if won else "LOSS"
-    hold = f"{int(hold_time_min)}m" if hold_time_min < 60 else f"{int(hold_time_min//60)}h{int(hold_time_min%60)}m"
     pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
-    short = market[:50] + "…" if len(market) > 50 else market
     strat = strategy.replace("_", " ").title()
-    text = (f"{icon} <b>{strat}</b>  {word}  {pnl_str}  ({hold})\n"
-            f"{entry_price:.3f} → {exit_price:.3f}\n"
-            f"<i>{short}</i>")
-    _send(text)
+    _send(f"{icon} {strat} {pnl_str}")
 
 def alert_kill_switch(drawdown_pct: float):
     _send(f"🚨 KILL SWITCH — Drawdown: {drawdown_pct:.1%}\nBot halted. Check account.")

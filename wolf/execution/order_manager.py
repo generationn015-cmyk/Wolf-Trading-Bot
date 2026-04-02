@@ -304,6 +304,7 @@ class OrderManager:
             entry_price=entry_price,
             confidence=signal.get("confidence", 0),
             paper=config.PAPER_MODE,
+            days_to_expiry=days_to_exp,
         )
 
         # Gate check (one-time)

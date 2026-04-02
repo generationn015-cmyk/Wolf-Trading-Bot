@@ -14,8 +14,11 @@ from journal.trade_logger import TradeLogger
 logger = logging.getLogger("wolf.health")
 
 class HealthCheck:
+    _STARTUP_GRACE_SEC = 30  # Don't flag feeds as down during first 30s
+
     def __init__(self, trade_logger: TradeLogger):
         self.journal = trade_logger
+        self._start_time = time.time()
         self._last_heartbeat: float = 0
         self._running = False
         self._task = None
@@ -58,8 +61,11 @@ class HealthCheck:
             from feeds.binance_feed import btc_feed
             price = btc_feed.get_price()
             age_ms = btc_feed.get_price_age_ms()
+            # Startup grace period — don't flag during initial REST/WS setup
+            if time.time() - self._start_time < self._STARTUP_GRACE_SEC:
+                results["binance_ok"] = True
             # Never flag as down if we've never received a price yet (feed still initializing)
-            if price == 0.0:
+            elif price == 0.0:
                 results["binance_ok"] = True  # Initializing — not a failure
             else:
                 results["binance_ok"] = age_ms < 30000
