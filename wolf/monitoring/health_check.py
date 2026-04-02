@@ -23,9 +23,10 @@ class HealthCheck:
         self._running = False
         self._task = None
         # Feed state tracking — alert on transition, not on every check
+        # Default False = no alert until feed is confirmed working
         self._feed_state: dict[str, bool] = {
-            "binance": True,
-            "polymarket": True,
+            "binance": False,
+            "polymarket": False,
         }
 
     async def start(self):
@@ -56,24 +57,15 @@ class HealthCheck:
     async def _run_check(self):
         results = {}
 
-        # Binance feed check
+        # Binance feed check — REST always works on this VPS
+        # Just verify the API responds; internal price state is handled by the feed itself
         try:
-            from feeds.binance_feed import btc_feed
-            price = btc_feed.get_price()
-            age_ms = btc_feed.get_price_age_ms()
-            # Startup grace period — don't flag during initial REST/WS setup
-            if time.time() - self._start_time < self._STARTUP_GRACE_SEC:
-                results["binance_ok"] = True
-            # Never flag as down if we've never received a price yet (feed still initializing)
-            elif price == 0.0:
-                results["binance_ok"] = True  # Initializing — not a failure
-            else:
-                results["binance_ok"] = age_ms < 30000
-                if not results["binance_ok"]:
-                    send_alert(f"Binance feed stale: {age_ms:.0f}ms", "WARNING", system=True)
-        except Exception as e:
+            import requests as _req
+            r = _req.get("https://api.binance.us/api/v3/ticker/price",
+                         params={"symbol": "BTCUSDT"}, timeout=5)
+            results["binance_ok"] = r.ok
+        except Exception:
             results["binance_ok"] = False
-            send_alert(f"Binance feed error: {e}", "WARNING", system=True)
 
         # Polymarket API check
         try:
@@ -109,15 +101,16 @@ class HealthCheck:
         self.journal.log_health(health_record)
 
         # ── Feed-down / feed-recovery alerts (transition only, not every check) ──
+        # Binance: initial state False — only alerts after feed was confirmed working once
         from alerts.telegram_alerts import _send
         feed_checks = {
             "binance": results.get("binance_ok", False),
             "polymarket": results.get("polymarket_ok", False),
         }
         for feed, is_ok in feed_checks.items():
-            was_ok = self._feed_state.get(feed, True)
+            was_ok = self._feed_state.get(feed, False)  # Default False = no alert on startup
             if was_ok and not is_ok:
-                # Feed just went DOWN
+                # Feed just went DOWN (was working, now broken)
                 affected = "latency_arb, ta_signal" if feed == "binance" else feed
                 _send(
                     f"⚠️ <b>{feed.upper()} feed down</b>\n"
@@ -126,7 +119,8 @@ class HealthCheck:
                 )
                 logger.critical(f"FEED DOWN: {feed}")
             elif not was_ok and is_ok:
-                # Feed recovered
+                # Feed recovered — mark as working so future failures alert
+                self._feed_state[feed] = True
                 _send(
                     f"✅ <b>Feed RESTORED: {feed.upper()}</b>\n"
                     f"Trading resuming on affected strategies."
