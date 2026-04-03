@@ -86,17 +86,22 @@ class CombinatorialArb:
                 edge = 1.0 - combined
                 question = m.get("question", "")[:70]
                 logger.info(f"[COMBI] Binary sum arb: {question} YES={p_yes:.3f}+NO={p_no:.3f}={combined:.3f} edge={edge:.3f}")
+                _end_epoch = float(m.get("_end_ts", 0) or 0)
+                _days_left = float(m.get("_days_to_expiry", 0) or 0)
                 self._cooldown[mid] = now
                 for side, price in [("YES", p_yes), ("NO", p_no)]:
                     signals.append({
-                        "strategy": "combinatorial_arb",
-                        "market_id": mid,
-                        "question": m.get("question", "")[:80],
-                        "side": side,
-                        "price": price,
-                        "confidence": 0.99,
-                        "size": min(MAX_POSITION, config.PAPER_STARTING_CAPITAL * 0.02),
-                        "reason": f"Binary sum arb: {combined:.3f} combined → {edge:.3f} guaranteed",
+                        "strategy":       "combinatorial_arb",
+                        "market_id":      mid,
+                        "question":       m.get("question", "")[:80],
+                        "side":           side,
+                        "entry_price":    price,
+                        "price":          price,
+                        "confidence":     0.99,
+                        "size":           min(MAX_POSITION, config.PAPER_STARTING_CAPITAL * 0.02),
+                        "days_to_expiry": _days_left,
+                        "market_end":     _end_epoch,
+                        "reason":         f"Binary sum arb: {combined:.3f} combined → {edge:.3f} guaranteed",
                     })
         return signals
 
@@ -143,15 +148,20 @@ class CombinatorialArb:
                 logger.info(f"[COMBI] Multi-outcome arb: {len(valid_group)} markets sum={total:.3f} edge={edge:.3f}")
                 self._cooldown[event_id] = now
                 for m, price in zip(valid_group, yes_prices):
+                    _end_epoch = float(m.get("_end_ts", 0) or 0)
+                    _days_left = float(m.get("_days_to_expiry", 0) or 0)
                     signals.append({
-                        "strategy": "combinatorial_arb",
-                        "market_id": m.get("conditionId") or m.get("id", ""),
-                        "question": m.get("question", "")[:80],
-                        "side": "YES",
-                        "price": price,
-                        "confidence": min(0.99, 0.85 + edge),
-                        "size": min(MAX_POSITION, config.PAPER_STARTING_CAPITAL * 0.02),
-                        "reason": f"Multi-outcome arb: {len(valid_group)} outcomes sum={total:.3f} → {edge:.3f} edge",
+                        "strategy":       "combinatorial_arb",
+                        "market_id":      m.get("conditionId") or m.get("id", ""),
+                        "question":       m.get("question", "")[:80],
+                        "side":           "YES",
+                        "entry_price":    price,
+                        "price":          price,
+                        "confidence":     min(0.99, 0.85 + edge),
+                        "size":           min(MAX_POSITION, config.PAPER_STARTING_CAPITAL * 0.02),
+                        "days_to_expiry": _days_left,
+                        "market_end":     _end_epoch,
+                        "reason":         f"Multi-outcome arb: {len(valid_group)} outcomes sum={total:.3f} → {edge:.3f} edge",
                     })
         return signals
 

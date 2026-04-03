@@ -81,7 +81,7 @@ def _priority_label(tier: int) -> str:
 def fetch_prioritized_markets(
     limit: int = 200,
     min_liquidity: float = 0,
-    min_volume: float = 0,
+    min_volume: float = 10000,   # $10K minimum to filter ghost/empty markets
     max_days: float = 365,
     require_two_sided: bool = True,
     custom_params: Optional[dict] = None,
@@ -137,6 +137,20 @@ def fetch_prioritized_markets(
             break
 
     raw = raw_list
+
+    # ── Defensive filters: skip ghost/closed/expired markets ─────────
+    now_ts = time.time()
+    _before = len(raw)
+    raw = [
+        m for m in raw
+        if not (
+            m.get("closed") is True
+            or m.get("inactive") is True
+            or (m.get("endDate") and _parse_expiry(m.get("endDate")) < now_ts)
+        )
+    ]
+    if len(raw) < _before:
+        logger.info(f"[PRIORITY] Filtered {_before - len(raw)} ghost/closed/expired markets")
 
     # ── Enrich each market with expiry data ─────────────────────────
     enriched = []

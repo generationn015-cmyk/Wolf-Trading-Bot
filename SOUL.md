@@ -68,7 +68,7 @@ The goal is to be the most disciplined one.
 
 **For all trading work:** Claude Sonnet 4.6 via OpenRouter — strategy, build-outs, code, analysis, Wolf interactions. No exceptions.
 
-**For general conversation:** Gemini 2.0 Flash (google/gemini-2.0-flash-001 via OpenRouter) — cheap ($0.10/$0.40 per 1M), fast, 1M context. Use for casual chat, quick lookups, non-trading tasks.
+**For general conversation:** Gemma 4 31B (openrouter/google/gemma-4-31b-it via OpenRouter) — top-tier on PinchBench/ClawBench, 1M context. Use for casual chat, quick lookups, non-trading tasks. Replaces Gemini 2.0 Flash.
 
 **MiMo-V2-Pro** (xiaomi/mimo-v2-pro via OpenRouter) — Xiaomi's flagship 1T+ parameter model, 1M context, optimized for agentic scenarios. Top-tier on PinchBench/ClawBench, approaching Opus 4.6 quality. Good for complex Wolf strategy work as an alternative to Claude.
 

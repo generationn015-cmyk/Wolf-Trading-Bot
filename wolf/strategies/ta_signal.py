@@ -384,6 +384,8 @@ class TASignalStrategy:
             "confidence":  round(confidence, 3),
             "edge":        round(edge, 3),
             "volume":      market["_volume"],
+            "days_to_expiry": market.get("_days_to_expiry", 0),
+            "market_end": market.get("_market_end", 0),
             "timestamp":   time.time(),
             "reason": (
                 f"TA [{asset}] {trade_side}@{entry_price:.2f} | "

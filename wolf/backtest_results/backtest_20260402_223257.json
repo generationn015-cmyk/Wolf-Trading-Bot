@@ -1,0 +1,148 @@
+{
+  "timestamp": "20260402_223257",
+  "strategies": {
+    "value_bet": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0,
+      "total_pnl": 0,
+      "avg_entry_price": 0,
+      "avg_confidence": 0,
+      "avg_pnl_per_trade": 0,
+      "sharpe": 0.0
+    },
+    "pair_trading": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0,
+      "total_pnl": 0,
+      "avg_entry_price": 0,
+      "avg_confidence": 0,
+      "avg_pnl_per_trade": 0,
+      "sharpe": 0.0
+    },
+    "near_expiry": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0,
+      "total_pnl": 0,
+      "avg_entry_price": 0,
+      "avg_confidence": 0,
+      "avg_pnl_per_trade": 0,
+      "sharpe": 0.0
+    },
+    "market_making": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0,
+      "total_pnl": 0,
+      "avg_entry_price": 0,
+      "avg_confidence": 0,
+      "avg_pnl_per_trade": 0,
+      "sharpe": 0.0
+    },
+    "ta_signal": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0.0,
+      "total_pnl": 0.0,
+      "avg_entry_price": 0.0,
+      "avg_confidence": 0.0,
+      "avg_pnl_per_trade": 0.0,
+      "sharpe": 0.0
+    },
+    "btc_scalper": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0.0,
+      "total_pnl": 0.0,
+      "avg_entry_price": 0.0,
+      "avg_confidence": 0.0,
+      "avg_pnl_per_trade": 0.0,
+      "sharpe": 0.0
+    },
+    "cross_platform_arb": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0,
+      "total_pnl": 0,
+      "avg_entry_price": 0,
+      "avg_confidence": 0,
+      "avg_pnl_per_trade": 0,
+      "sharpe": 0.0
+    },
+    "copy_trading": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0.0,
+      "total_pnl": 0.0,
+      "avg_entry_price": 0.0,
+      "avg_confidence": 0.0,
+      "avg_pnl_per_trade": 0.0,
+      "sharpe": 0.0
+    },
+    "sentiment": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0.0,
+      "total_pnl": 0.0,
+      "avg_entry_price": 0.0,
+      "avg_confidence": 0.0,
+      "avg_pnl_per_trade": 0.0,
+      "sharpe": 0.0
+    },
+    "momentum": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0.0,
+      "total_pnl": 0.0,
+      "avg_entry_price": 0.0,
+      "avg_confidence": 0.0,
+      "avg_pnl_per_trade": 0.0,
+      "sharpe": 0.0
+    },
+    "mean_reversion": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0,
+      "total_pnl": 0,
+      "avg_entry_price": 0,
+      "avg_confidence": 0,
+      "avg_pnl_per_trade": 0,
+      "sharpe": 0.0
+    },
+    "breakout": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0.0,
+      "total_pnl": 0.0,
+      "avg_entry_price": 0.0,
+      "avg_confidence": 0.0,
+      "avg_pnl_per_trade": 0.0,
+      "sharpe": 0.0
+    },
+    "earnings": {
+      "total_trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0,
+      "total_pnl": 0,
+      "avg_entry_price": 0,
+      "avg_confidence": 0,
+      "avg_pnl_per_trade": 0,
+      "sharpe": 0.0
+    }
+  }
+}

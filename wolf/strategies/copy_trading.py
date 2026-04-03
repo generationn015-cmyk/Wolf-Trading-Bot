@@ -7,6 +7,8 @@ import os
 import time
 import logging
 import asyncio
+import requests
+from datetime import datetime, timezone as _tz
 from dataclasses import dataclass, field
 from typing import Optional
 import config
@@ -220,9 +222,9 @@ class CopyTrader:
                         _mkt = _mkt_data[0] if isinstance(_mkt_data, list) and _mkt_data else {}
                         _end_raw = _mkt.get("endDate") or _mkt.get("endDateIso") or ""
                         if _end_raw:
-                            from datetime import datetime, timezone as _tz
                             _end_dt = datetime.fromisoformat(_end_raw.replace("Z", "+00:00"))
-                            if not _end_dt.tzinfo: _end_dt = _end_dt.replace(tzinfo=_tz.utc)
+                            if not _end_dt.tzinfo:
+                                _end_dt = _end_dt.replace(tzinfo=_tz.utc)
                             if _end_dt.timestamp() < time.time():
                                 logger.debug(f"[COPY] Skipping expired market {_market_slug} ended {_end_raw[:10]}")
                                 continue  # Market already ended — don't enter
@@ -235,8 +237,7 @@ class CopyTrader:
                 # If activity feed didn't include slug, look it up from Gamma API
                 if market_id and not market_slug:
                     try:
-                        import requests as _req
-                        _gr = _req.get("https://gamma-api.polymarket.com/markets",
+                        _gr = requests.get("https://gamma-api.polymarket.com/markets",
                                        params={"condition_ids": market_id}, timeout=5)
                         if _gr.ok:
                             _gd = _gr.json()
@@ -289,26 +290,25 @@ class CopyTrader:
                 # This catches ancient/resolved markets (2020 elections, historical data, etc.)
                 _mkt_end_ts = 0.0
                 try:
-                    import requests as _r2, time as _t2
-                    _resp2 = _r2.get("https://gamma-api.polymarket.com/markets",
+                    _resp2 = requests.get("https://gamma-api.polymarket.com/markets",
                                      params={"conditionId": market_id}, timeout=5)
                     if _resp2.ok:
                         _md2 = _resp2.json()
                         _m2 = _md2[0] if isinstance(_md2, list) and _md2 else {}
                         _er2 = _m2.get("endDate") or _m2.get("endDateIso") or ""
                         if _er2:
-                            from datetime import datetime, timezone as _tz2
                             _edt2 = datetime.fromisoformat(_er2.replace("Z", "+00:00"))
-                            if not _edt2.tzinfo: _edt2 = _edt2.replace(tzinfo=_tz2.utc)
+                            if not _edt2.tzinfo:
+                                _edt2 = _edt2.replace(tzinfo=_tz.utc)
                             _mkt_end_ts = _edt2.timestamp()
-                            if _mkt_end_ts < _t2.time():
+                            _mkt_days_to_expiry = max(0.0, (_mkt_end_ts - time.time()) / 86400)
+                            if _mkt_end_ts < time.time():
                                 logger.debug(f"[COPY] Hard block: expired market {market_id[:20]} ended {_er2[:10]}")
                                 continue  # HARD BLOCK — never enter expired market
                 except Exception:
                     pass  # If API fails, allow cautiously
 
-                import config as _cfg2
-                if _cfg2.PAPER_MODE:
+                if config.PAPER_MODE:
                     market_end = get_market_end_date(market_id)
                     if market_end is not None and market_end > 14:
                         logger.debug(f"Skipping {market_id[:12]}... resolves in {market_end:.1f}d (>14d cap)")
@@ -348,7 +348,8 @@ class CopyTrader:
                         "wallet": addr,
                         "demo_only": False,
                         "timestamp": time.time(),
-                        "market_end": _mkt_end_ts,  # Expiry guard uses this
+                        "market_end": _mkt_end_ts,
+                        "days_to_expiry": _mkt_days_to_expiry,
                         "reason": f"Copy top trader {addr[:10]}... PnL ${profile.pnl:,.0f}",
                     })
 

@@ -35,6 +35,7 @@ from market_priority import fetch_prioritized_markets
 logger = logging.getLogger("wolf.strategy.near_expiry")
 
 # Blueprint Module A: blacklist volatile categories from bond strategy
+ENABLED = False   # DISABLED: 100% void rate — ghost markets, fix pending
 BOND_BLACKLIST = [
     'election', 'political', 'regulatory', 'legal', 'fed_decision',
     'geopolitical', 'health_emergency', 'crypto_regulatory', 'verdict',
@@ -137,6 +138,8 @@ class NearExpiryStrategy:
         return self._poly_cache
 
     async def scan(self) -> list[dict]:
+        if not ENABLED:
+            return []
         signals = []
         now = time.time()
         opportunities: list[NearExpiryOpportunity] = []

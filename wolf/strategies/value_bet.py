@@ -49,6 +49,7 @@ POLY_FEE          = 0.01   # 1% taker fee
 MIN_EDGE          = 0.04   # 4 cents net edge required
 COOLDOWN          = 300    # 5 min per market — allow re-entry as prices move
 MIN_CONFIDENCE    = 0.70   # override config — be more selective here
+ENABLED = False   # DISABLED: 21% WR in paper, 983 simulated losses in backtest — broken strategy
 
 
 class ValueBetStrategy:
@@ -162,6 +163,8 @@ class ValueBetStrategy:
         return None, None, None, None
 
     async def scan(self) -> list[dict]:
+        if not ENABLED:
+            return []
         # Check if learning engine has paused this strategy due to WR collapse
         if learning.is_strategy_paused("value_bet"):
             logger.debug("[VALUE_BET] Strategy paused by learning engine — skipping scan")

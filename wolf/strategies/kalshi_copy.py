@@ -165,6 +165,8 @@ class KalshiCopyTrader:
                         "confidence":  confidence,
                         "edge":        edge,
                         "volume":      vol,
+                        "days_to_expiry": 0,
+                        "market_end": 0,
                         "timestamp":   now,
                         "reason": (
                             f"Kalshi copy: {uid[:12]}… PnL ${wallet.pnl:,.0f} | "

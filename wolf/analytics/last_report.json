@@ -1,6 +1,6 @@
 {
   "period_hours": 24,
-  "generated_at": 1775165953.518283,
+  "generated_at": 1775242289.4366565,
   "overall": {
     "total_trades": 0,
     "wins": 0,
@@ -17,15 +17,7 @@
   "by_strategy": {},
   "price_buckets": [],
   "hourly_performance": [],
-  "worst_losses": [
-    {
-      "strategy": "value_bet",
-      "entry_price": 0.23,
-      "side": "YES",
-      "pnl": 0,
-      "reason": "ValueBet: Underdog YES@0.230 vol=$5,413 | Will Macarthur FC vs. Newcastle United"
-    }
-  ],
+  "worst_losses": [],
   "wallet_performance": [],
   "lessons": [
     "\ud83d\udd34 Overall WR 0.0% \u2014 below target. Tighten filters.",

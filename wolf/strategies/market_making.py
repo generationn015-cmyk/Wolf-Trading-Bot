@@ -14,6 +14,7 @@ import time
 import logging
 import asyncio
 import requests
+from datetime import datetime, timezone as _tz
 from dataclasses import dataclass, field
 import json as _mm_json
 import config
@@ -21,8 +22,7 @@ import config
 def _get_clob_spread_value(clob_token_id: str) -> float:
     """Returns the CLOB spread for a token. No auth needed."""
     try:
-        import requests as _rq
-        r = _rq.get("https://clob.polymarket.com/spread",
+        r = requests.get("https://clob.polymarket.com/spread",
             params={"token_id": clob_token_id}, timeout=5)
         return float(r.json().get("spread", 0)) if r.ok else 0.0
     except Exception:
@@ -89,29 +89,27 @@ class MarketMaker:
                 vol = float(m.get("volumeNum", 0) or 0)
                 if vol < config.MIN_MARKET_VOLUME:
                     continue
-                # Duration filter: Blueprint Module C rules
-                # - Resolving in < 24h → adverse selection risk (don't post quotes)  
-                # - Resolving in > 14 days → low urgency, prefer shorter markets
-                import config as _mmcfg
-                from datetime import datetime, timezone as _tz
+                # Duration filter — compute days to expiry and store on market dict
+                # so scan() can read it without recomputing (fixes _days NameError)
                 _end_raw = m.get("endDate") or m.get("endDateIso") or ""
-                _days = 5.0  # default
-                if _end_raw:
+                _days = m.get("_days_to_expiry", 5.0)  # prefer pre-computed from market_priority
+                if _end_raw and "_days_to_expiry" not in m:
                     try:
                         _end_dt = datetime.fromisoformat(_end_raw.replace("Z", "+00:00"))
-                        if not _end_dt.tzinfo: _end_dt = _end_dt.replace(tzinfo=_tz.utc)
+                        if not _end_dt.tzinfo:
+                            _end_dt = _end_dt.replace(tzinfo=_tz.utc)
                         _days = (_end_dt - datetime.now(_tz.utc)).total_seconds() / 86400
                     except Exception:
                         pass
-                # Market making window: 1h out to 180 days
-                # Short-term (<1h): skip — too close to resolution, adverse selection risk
-                # Long-term (>180d): skip — too illiquid for spread capture
-                # The real sweet spot: high-volume liquid markets at ANY duration
-                if _days < (2/24):   # Under 2 hours — skip (resolution imminent, adverse selection)
+
+                # Store on market dict — critical: scan() reads this
+                m["_mm_days"] = _days
+
+                # Under 2h: adverse selection risk. Over 180d: too illiquid.
+                if _days < (2 / 24):
                     continue
-                if _days > 180:  # Over 180 days — skip (too far, low activity)
+                if _days > 180:
                     continue
-                # Boost priority for <7 day markets — faster resolution = more learning
 
                 m["_yes_price"] = p0
                 m["_no_price"]  = p1
@@ -209,6 +207,9 @@ class MarketMaker:
             no_price  = market["_no_price"]
             volume    = market["_volume"]
 
+            # Read _days from market dict (set during _fetch_active_markets)
+            _days = market.get("_mm_days", market.get("_days_to_expiry", 5.0))
+
             # Spread we'd capture posting both sides tight
             # Natural spread on Polymarket is typically 2–8 cents
             # Use real CLOB spread if available; fallback to mid-price spread
@@ -270,20 +271,22 @@ class MarketMaker:
                 ),
             })
             signals.append({
-                "strategy":    "market_making",
-                "venue":       "polymarket",
-                "market_id":   market_id,
-                "side":        "NO",
-                "order_type":  "limit",
-                "limit_price": round(1.0 - our_ask, 3),
-                "entry_price": round(1.0 - our_ask, 3),
-                "edge":        captured / 2,
-                "confidence":  confidence,
-                "volume":      volume,
-                "vpin":        vpin,
-                "slug":        _mm_slug,
-                "timestamp":   now,
-                "reason":      f"MM both sides — paired hedge",
+                "strategy":       "market_making",
+                "venue":          "polymarket",
+                "market_id":      market_id,
+                "side":           "NO",
+                "order_type":     "limit",
+                "limit_price":    round(1.0 - our_ask, 3),
+                "entry_price":    round(1.0 - our_ask, 3),
+                "edge":           captured / 2,
+                "confidence":     confidence,
+                "volume":         volume,
+                "vpin":           vpin,
+                "slug":           _mm_slug,
+                "timestamp":      now,
+                "days_to_expiry": _days,
+                "market_end":     now + _days * 86400,
+                "reason":         "MM both sides — paired hedge",
             })
 
         return signals

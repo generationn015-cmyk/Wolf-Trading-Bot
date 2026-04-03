@@ -84,6 +84,7 @@ COOLDOWN_SEC  = 3600  # 1 hour per market — don't re-enter while position is o
 MAX_ENTRY_PRICE = 0.38  # Only enter if market price ≤ 38¢ (enough upside)
 MIN_ENTRY_PRICE = 0.05  # Skip near-zero — liquidity too thin
 CONFIDENCE_BASE = 0.82  # Timezone arb fires with high conviction
+ENABLED = False   # DISABLED: 100% void rate, ghost markets — fix pending
 
 
 @dataclass
@@ -251,6 +252,8 @@ class TimezoneArb:
         Scan during US sleep window for timezone arb opportunities.
         Outside the window: still scan but with lower confidence multiplier.
         """
+        if not ENABLED:
+            return []
         signals = []
         now = time.time()
 
@@ -327,18 +330,22 @@ class TimezoneArb:
 
             vol = float(market.get("volumeNum", 0) or 0)
 
+            _end_epoch = float(market.get("_end_ts", 0) or 0)
+            _days_left = market.get("_days_to_expiry", 0)
             self._fired_markets[market_id] = now
             signals.append({
-                "strategy":    "timezone_arb",
-                "venue":       "polymarket",
-                "market_id":   market_id,
-                "side":        side,
-                "entry_price": entry_price,
-                "confidence":  confidence,
-                "edge":        1.0 - entry_price - 0.02,  # net edge after fees
-                "volume":      vol,
-                "timestamp":   now,
-                "region":      headline["region"],
+                "strategy":       "timezone_arb",
+                "venue":          "polymarket",
+                "market_id":      market_id,
+                "side":           side,
+                "entry_price":    entry_price,
+                "confidence":     confidence,
+                "edge":           1.0 - entry_price - 0.02,  # net edge after fees
+                "volume":         vol,
+                "timestamp":      now,
+                "region":         headline["region"],
+                "days_to_expiry": _days_left,
+                "market_end":     _end_epoch,
                 "reason": (
                     f"TZ arb [{headline['region']}] "
                     f"{headline['title'][:60]}… "

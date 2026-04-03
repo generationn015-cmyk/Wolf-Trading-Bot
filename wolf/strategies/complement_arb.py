@@ -1,85 +1,60 @@
 """
-Wolf Trading Bot — Binary Complement Arbitrage
+Wolf Trading Bot — High-Probability Bond Strategy (formerly Complement Arb)
 
-The edge: On any binary YES/NO market, exactly one side pays $1.00.
-If YES_ask + NO_ask < $1.00, buying both sides locks guaranteed profit.
-Cost: (YES_ask + NO_ask) × size
-Payout: $1.00 × size (one side always wins)
-Net: ($1.00 - combined_cost) × size — risk-free
+The original "buy YES+NO for <$0.97 combined" approach is mathematically impossible
+on Polymarket — YES+NO always sums to ~$1.00 by design. Strategy replaced.
 
-Real example (verified wallet $300→$400K+):
-- Market: "BTC > $X in 15 min?"
-- YES ask: 0.47  |  NO ask: 0.47  |  Total: 0.94
-- Buy both → guaranteed $0.06 per share
-- 400 trades/day × 100 shares × $0.06 = $2,400/day
+NEW STRATEGY: HIGH-PROBABILITY BOND
+When a market is priced at >= 0.92 on one side (near-certain outcome), back it.
+The implied probability is already high, so residual risk is small. The edge
+is in being right 95%+ of the time on markets the crowd has already priced highly.
 
-Polymarket added fees on 15-min crypto markets at ~50/50 prices.
-Fee is highest at 50¢, lowest at extremes.
-Current fee structure: max 1.56% at 50¢, near-zero at extremes.
-We target: combined_price ≤ 0.95 to clear fees comfortably.
+Rules:
+- Target: one side >= 0.92 (market says ~92%+ chance)
+- Volume >= $20K (proven liquidity, market isn't thin/stale)
+- Within 48h of resolution (captures the final convergence to 1.0)
+- Don't enter above 0.995 — no juice left
+- Max 4 concurrent positions, $10 per trade
 
-Strategy scope:
-1. All active binary markets (not just 15-min)
-2. Scan for YES+NO ask sum < 0.95
-3. Also check near-expiry markets (within 2 hours) for near-$1 resolution
+Edge vs value_bet bond logic: this fires on near-certainty markets nearing expiry,
+value_bet fires on full-certainty (>0.92 ALL durations). Separate cadence.
 """
 import time
 import logging
 import asyncio
-import requests
 import json as _json
-from dataclasses import dataclass, field
-from typing import Optional
+from datetime import datetime, timezone as _tz
+from market_priority import fetch_prioritized_markets
 import config
-from feeds.polymarket_feed import get_orderbook
-import config
-POLYMARKET_GAMMA_URL = config.POLYMARKET_GAMMA_URL
+from learning_engine import learning
 
 logger = logging.getLogger("wolf.strategy.complement_arb")
 
-MAX_COMBINED_COST = 0.95   # Must be below this to clear fees and be profitable
-MIN_EDGE          = 0.03   # Minimum net edge (3¢ per share minimum)
-MAX_POSITION_SIZE = 200    # Max $200 per arb (scales with balance)
-COOLDOWN_SEC      = 300    # 5 min cooldown per market
-MIN_VOLUME        = 5_000  # Need at least $5K volume for fill confidence
-
-
-@dataclass
-class ArbOpportunity:
-    market_id: str
-    yes_ask: float
-    no_ask: float
-    combined_cost: float
-    edge: float           # 1.0 - combined_cost
-    volume: float
-    question: str
-    near_expiry: bool = False
+HIGH_PROB_MIN     = 0.92   # Minimum price for "near-certain" signal
+HIGH_PROB_MAX     = 0.995  # Don't enter — no upside
+MIN_VOLUME        = 20_000 # $20K volume required
+MAX_POSITION_SIZE = 10     # $10 per trade
+MAX_ACTIVE        = 4      # Max concurrent positions
+COOLDOWN_SEC      = 1800   # 30 min cooldown per market
 
 
 class ComplementArb:
     def __init__(self):
-        self._market_cache:    list[dict] = []
-        self._market_cache_ts: float = 0.0
-        self._market_ttl:      float = 120   # refresh every 2 min
-        self._fired:           dict[str, float] = {}  # market_id → last fired ts
-        self._scan_count:      int = 0
+        self._active: dict[str, float] = {}   # market_id → last_fired ts
+        self._market_cache: list[dict] = []
+        self._cache_ts: float = 0.0
+        self._cache_ttl: float = 120
 
     def _fetch_markets(self) -> list[dict]:
         now = time.time()
-        if now - self._market_cache_ts < self._market_ttl and self._market_cache:
+        if now - self._cache_ts < self._cache_ttl and self._market_cache:
             return self._market_cache
         try:
-            resp = requests.get(
-                f"{POLYMARKET_GAMMA_URL}/markets",
-                params={"active": True, "limit": 100, "closed": False},
-                timeout=10,
-            )
-            if not resp.ok:
-                return self._market_cache
-            markets = resp.json()
+            markets = fetch_prioritized_markets(limit=200, max_days=2)
             if not isinstance(markets, list):
                 return self._market_cache
 
+            now_dt = datetime.now(_tz.utc)
             filtered = []
             for m in markets:
                 op = m.get("outcomePrices", [])
@@ -89,7 +64,7 @@ class ComplementArb:
                 if not op or len(op) < 2:
                     continue
                 try:
-                    p0, p1 = float(op[0]), float(op[1])
+                    p_yes, p_no = float(op[0]), float(op[1])
                 except (ValueError, TypeError):
                     continue
 
@@ -97,140 +72,121 @@ class ComplementArb:
                 if vol < MIN_VOLUME:
                     continue
 
-                combined = p0 + p1
-                if combined > MAX_COMBINED_COST + 0.10:
-                    # Way too expensive — skip early
+                # Check if either side qualifies as high-probability
+                high_side = None
+                high_price = None
+                if HIGH_PROB_MIN <= p_yes <= HIGH_PROB_MAX:
+                    high_side = "YES"
+                    high_price = p_yes
+                elif HIGH_PROB_MIN <= p_no <= HIGH_PROB_MAX:
+                    high_side = "NO"
+                    high_price = p_no
+                else:
                     continue
 
-                m["_yes_price"]   = p0
-                m["_no_price"]    = p1
-                m["_combined"]    = combined
-                m["_volume"]      = vol
+                # Expiry filter — only near-term
+                end_raw = m.get("endDate") or m.get("endDateIso") or ""
+                hours_left = 99.0
+                end_epoch = 0.0
+                if end_raw:
+                    try:
+                        end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+                        if not end_dt.tzinfo:
+                            end_dt = end_dt.replace(tzinfo=_tz.utc)
+                        hours_left = (end_dt - now_dt).total_seconds() / 3600
+                        end_epoch = end_dt.timestamp()
+                    except Exception:
+                        pass
+                if hours_left < 0.5:
+                    continue
+
+                m["_yes_price"]  = p_yes
+                m["_no_price"]   = p_no
+                m["_volume"]     = vol
+                m["_hours_left"] = hours_left
+                m["_end_epoch"]  = end_epoch
+                m["_high_side"]  = high_side
+                m["_high_price"] = high_price
                 filtered.append(m)
 
+            # Sort by highest price (most certain) first
+            filtered.sort(key=lambda x: x["_high_price"], reverse=True)
             self._market_cache = filtered
-            self._market_cache_ts = now
+            self._cache_ts = now
         except Exception as e:
-            logger.warning(f"Complement arb market fetch: {e}")
+            logger.warning(f"High-prob bond market fetch: {e}")
         return self._market_cache
 
-    def _check_near_expiry(self, market: dict) -> bool:
-        """Return True if market resolves within 2 hours."""
-        end_date = market.get("endDate") or market.get("endDateIso") or ""
-        if not end_date:
-            return False
-        try:
-            from datetime import datetime, timezone
-            # endDate format: "2026-03-29T23:00:00Z"
-            end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-            remaining = (end_dt - datetime.now(timezone.utc)).total_seconds()
-            return 0 < remaining < 7200  # within 2 hours
-        except Exception:
-            return False
-
-    def _find_arb(self, market: dict) -> Optional[ArbOpportunity]:
-        """Check if a market has a complement arb opportunity."""
-        yes_ask = market["_yes_price"]
-        no_ask  = market["_no_price"]
-
-        # In a real CLOB we'd check the actual ask side of the orderbook.
-        # Here the outcomePrices represent the best available prices.
-        # Add a 0.5¢ buffer for slippage.
-        combined = yes_ask + no_ask + 0.005  # small slippage buffer
-
-        if combined > MAX_COMBINED_COST:
-            return None
-
-        edge = 1.0 - combined
-        if edge < MIN_EDGE:
-            return None
-
-        near_expiry = self._check_near_expiry(market)
-        return ArbOpportunity(
-            market_id    = market.get("conditionId") or market.get("id", ""),
-            yes_ask      = yes_ask,
-            no_ask       = no_ask,
-            combined_cost = combined,
-            edge         = edge,
-            volume       = market["_volume"],
-            question     = market.get("question", "")[:80],
-            near_expiry  = near_expiry,
-        )
-
     async def scan(self) -> list[dict]:
-        """Scan all active markets for complement arb opportunities."""
         signals = []
         now = time.time()
-        self._scan_count += 1
 
-        # Scan every scan cycle — this is the highest-priority strategy
+        # Expire cooldowns
+        stale = [mid for mid, ts in self._active.items() if now - ts > COOLDOWN_SEC]
+        for mid in stale:
+            del self._active[mid]
+
+        active_count = len(self._active)
+        if active_count >= MAX_ACTIVE:
+            return signals
+
         markets = self._fetch_markets()
-        opportunities: list[ArbOpportunity] = []
+        floor = learning.get_confidence_floor("complement_arb")
 
-        for market in markets:
-            arb = self._find_arb(market)
-            if not arb or not arb.market_id:
+        for m in markets:
+            if active_count >= MAX_ACTIVE:
+                break
+
+            mid = m.get("conditionId") or m.get("id", "")
+            if not mid or mid in self._active:
                 continue
-            if now - self._fired.get(arb.market_id, 0) < COOLDOWN_SEC:
+
+            side  = m["_high_side"]
+            price = m["_high_price"]
+            volume = m["_volume"]
+            hours_left = m["_hours_left"]
+            end_epoch = m["_end_epoch"]
+            question = m.get("question", "")[:80]
+
+            # Confidence scales with certainty — 0.92 price = 0.88 conf, 0.99 = 0.97 conf
+            confidence = min(0.97, 0.85 + (price - HIGH_PROB_MIN) * 1.5)
+            confidence = max(confidence, floor)
+
+            if confidence < max(floor, config.MIN_CONFIDENCE):
                 continue
-            opportunities.append(arb)
 
-        # Sort by edge descending — take the best ones first
-        opportunities.sort(key=lambda x: x.edge, reverse=True)
+            self._active[mid] = now
+            active_count += 1
 
-        for arb in opportunities[:3]:  # Max 3 per scan
-            confidence = min(0.97, 0.90 + arb.edge * 2)  # High confidence — it's arb
-            if arb.near_expiry:
-                confidence = min(0.99, confidence + 0.02)
+            slug = m.get("slug", "")
+            if slug and mid:
+                try:
+                    from market_resolver import register_slug
+                    register_slug(mid, slug)
+                except Exception:
+                    pass
 
-            self._fired[arb.market_id] = now
-
-            reason = (
-                f"Complement arb: YES {arb.yes_ask:.3f} + NO {arb.no_ask:.3f} "
-                f"= {arb.combined_cost:.3f} | edge={arb.edge:.3f} | "
-                f"{'NEAR EXPIRY ' if arb.near_expiry else ''}"
-                f"{arb.question}"
-            )
-
-            # YES leg
             signals.append({
-                "strategy":    "complement_arb",
-                "venue":       "polymarket",
-                "market_id":   arb.market_id,
-                "side":        "YES",
-                "entry_price": arb.yes_ask,
-                "confidence":  confidence,
-                "edge":        arb.edge / 2,
-                "volume":      arb.volume,
-                "timestamp":   now,
-                "arb_pair":    True,
-                "reason":      reason,
-            })
-            # NO leg (hedge — one always wins)
-            signals.append({
-                "strategy":    "complement_arb",
-                "venue":       "polymarket",
-                "market_id":   arb.market_id,
-                "side":        "NO",
-                "entry_price": arb.no_ask,
-                "confidence":  confidence,
-                "edge":        arb.edge / 2,
-                "volume":      arb.volume,
-                "timestamp":   now,
-                "arb_pair":    True,
-                "reason":      f"Complement hedge: {reason}",
+                "strategy":       "complement_arb",
+                "venue":          "polymarket",
+                "market_id":      mid,
+                "slug":           slug,
+                "side":           side,
+                "entry_price":    price,
+                "edge":           1.0 - price,
+                "confidence":     confidence,
+                "volume":         volume,
+                "timestamp":      now,
+                "days_to_expiry": hours_left / 24,
+                "market_end":     end_epoch,
+                "reason": (
+                    f"High-prob bond {side}@{price:.3f} "
+                    f"vol=${volume:,.0f} expires_in={hours_left:.1f}h"
+                ),
             })
             logger.info(
-                f"💰 Complement arb: {arb.question[:40]}… "
-                f"edge={arb.edge:.3f} combined={arb.combined_cost:.3f}"
-                + (" [NEAR EXPIRY]" if arb.near_expiry else "")
-            )
-
-        if opportunities and self._scan_count % 20 == 0:
-            logger.info(
-                f"Complement arb scan: {len(markets)} markets checked | "
-                f"{len(opportunities)} opportunities | "
-                f"best edge: {opportunities[0].edge:.3f}" if opportunities else "none"
+                f"High-prob bond: {side}@{price:.3f} | {question[:50]} | "
+                f"conf={confidence:.2f} vol=${volume:,.0f}"
             )
 
         return signals

@@ -147,6 +147,8 @@ class LatencyArb:
                     "confidence": confidence,
                     "entry_price": yes_price,
                     "volume": volume,
+                    "days_to_expiry": 0,
+                    "market_end": 0,
                     "timestamp": time.time(),
                     "reason": f"BTC ${btc_price:,.0f} > threshold ${threshold:,.0f}, YES underpriced at {yes_price:.3f}",
                 }
@@ -164,6 +166,8 @@ class LatencyArb:
                     "confidence": confidence,
                     "entry_price": no_price,
                     "volume": volume,
+                    "days_to_expiry": 0,
+                    "market_end": 0,
                     "timestamp": time.time(),
                     "reason": f"BTC ${btc_price:,.0f} < threshold ${threshold:,.0f}, NO underpriced at {no_price:.3f}",
                 }
